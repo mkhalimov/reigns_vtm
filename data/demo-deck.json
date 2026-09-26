@@ -1,0 +1,574 @@
+{
+  "title": "Руан — демо-колода",
+  "plotTimers": [
+    { "id": "genevieve_archive", "title": "Архив Женевьевы", "max": 4 },
+    { "id": "lucian_patience", "title": "Терпение Луциана", "max": 3 }
+  ],
+  "cards": [
+    {
+      "id": "r01_tithe",
+      "title": "Десятина крови",
+      "deck": "routine",
+      "timeOfDay": "вечер",
+      "speaker": "Сенешаль",
+      "face": "Сбор десятины. Анархи с левого берега опять «забыли». Сенешаль ждёт, *что скажет домен*.",
+      "left": {
+        "label": "Взыскать сполна — показательно",
+        "effects": [
+          { "type": "track", "track": "court", "delta": 1 },
+          { "type": "track", "track": "city", "delta": -1 }
+        ]
+      },
+      "right": {
+        "label": "Простить в этот раз",
+        "effects": [
+          { "type": "track", "track": "court", "delta": -1 },
+          { "type": "track", "track": "night", "delta": 1 }
+        ]
+      },
+      "idleDefault": "right",
+      "interlude": 1
+    },
+    {
+      "id": "r02_roof",
+      "title": "Протекающая крыша",
+      "deck": "routine",
+      "timeOfDay": "вечер",
+      "face": "Крыша манора течёт прямо над гробницей. Рабочие днём — это глаза и языки.",
+      "left": {
+        "label": "Нанять рабочих, гули присмотрят",
+        "effects": [
+          { "type": "track", "track": "masquerade", "delta": -1 },
+          { "type": "track", "track": "city", "delta": 1 }
+        ]
+      },
+      "right": {
+        "label": "Чинить своими силами, ночами",
+        "effects": [{ "type": "track", "track": "night", "delta": -1 }]
+      },
+      "idleDefault": "left"
+    },
+    {
+      "id": "r03_ghoul_errand",
+      "title": "Поручение гуля",
+      "deck": "routine",
+      "speaker": "Мадлен, гуль",
+      "face": "«Хозяин, в префектуре новый клерк. Задаёт вопросы про старые купчие на манор».",
+      "left": {
+        "label": "Подкупить клерка",
+        "effects": [
+          { "type": "track", "track": "city", "delta": 1 },
+          { "type": "track", "track": "court", "delta": -1 }
+        ]
+      },
+      "right": {
+        "label": "Пусть Мадлен его отвлечёт",
+        "effects": [
+          { "type": "track", "track": "masquerade", "delta": -1 },
+          { "type": "setFlag", "flag": "madeleine_exposed" }
+        ],
+        "gmNote": "Мадлен засветится — позже всплывёт в линии охотников."
+      },
+      "idleDefault": "right"
+    },
+    {
+      "id": "r04_patrol",
+      "title": "Ночной патруль",
+      "deck": "routine",
+      "timeOfDay": "глубокая ночь",
+      "face": "Жандармы усилили патрули у собора. Охота в центре стала рискованной.",
+      "left": {
+        "label": "Перенести охоту в порт",
+        "effects": [
+          { "type": "track", "track": "night", "delta": -1 },
+          { "type": "track", "track": "masquerade", "delta": 1 }
+        ]
+      },
+      "right": {
+        "label": "Охотиться как прежде",
+        "effects": [{ "type": "track", "track": "masquerade", "delta": -2 }]
+      },
+      "idleDefault": "right",
+      "oneShot": false
+    },
+    {
+      "id": "r05_grounds",
+      "title": "Охотничьи угодья",
+      "deck": "routine",
+      "face": "Малкавиан просит угодья у Старого рынка. Там кормятся ваши гули.",
+      "left": {
+        "label": "Уступить",
+        "effects": [
+          { "type": "track", "track": "court", "delta": 1 },
+          { "type": "track", "track": "capacity", "delta": -1 }
+        ]
+      },
+      "right": {
+        "label": "Отказать",
+        "effects": [{ "type": "track", "track": "court", "delta": -1 }]
+      },
+      "idleDefault": "right"
+    },
+    {
+      "id": "r06_letter",
+      "title": "Письмо из Парижа",
+      "deck": "routine",
+      "face": "Надушенное письмо без подписи: «Париж помнит Руан. Париж ждёт ответа».",
+      "left": {
+        "label": "Ответить учтиво",
+        "effects": [
+          { "type": "track", "track": "court", "delta": 1 },
+          { "type": "timer", "id": "lucian_patience", "delta": 1 }
+        ]
+      },
+      "right": {
+        "label": "Сжечь не читая",
+        "effects": [
+          { "type": "track", "track": "court", "delta": -1 },
+          { "type": "setFlag", "flag": "paris_ignored" }
+        ]
+      },
+      "idleDefault": "right"
+    },
+    {
+      "id": "d01_old_blood",
+      "title": "Старая кровь",
+      "deck": "deruan",
+      "timeOfDay": "полночь",
+      "face": "В подвале манора находят запечатанный склеп с гербом де Руанов. Печать — **свежая**.",
+      "left": {
+        "label": "Вскрыть склеп",
+        "effects": [
+          { "type": "setFlag", "flag": "crypt_opened" },
+          { "type": "timer", "id": "genevieve_archive", "delta": 1 },
+          { "type": "track", "track": "night", "delta": 1 }
+        ]
+      },
+      "right": {
+        "label": "Замуровать обратно",
+        "effects": [
+          { "type": "setFlag", "flag": "crypt_sealed" },
+          { "type": "track", "track": "masquerade", "delta": 1 }
+        ]
+      },
+      "gmNote": "Внутри — первый том архива Женевьевы.",
+      "interlude": 1,
+      "tags": ["deruan_line"]
+    },
+    {
+      "id": "d02_archive",
+      "title": "Архив Женевьевы",
+      "deck": "deruan",
+      "face": "Письма Женевьевы де Руан: кого она кормила, кого предала, кого *ждала*.",
+      "requires": [{ "flag": "crypt_opened" }],
+      "left": {
+        "label": "Читать дальше",
+        "effects": [
+          { "type": "timer", "id": "genevieve_archive", "delta": 1 },
+          { "type": "track", "track": "night", "delta": 1 },
+          { "type": "addCard", "card": "d03_portrait", "delay": { "interludes": 1 } }
+        ]
+      },
+      "right": {
+        "label": "Передать архив Двору",
+        "effects": [
+          { "type": "track", "track": "court", "delta": 2 },
+          { "type": "removeCard", "card": "d03_portrait" }
+        ]
+      },
+      "interlude": 2,
+      "tags": ["deruan_line"]
+    },
+    {
+      "id": "d03_portrait",
+      "title": "Портрет в галерее",
+      "deck": "deruan",
+      "face": "Портрет Женевьевы поворачивает голову. Или это игра свечей.",
+      "left": {
+        "label": "Снять портрет",
+        "effects": [{ "type": "track", "track": "night", "delta": -1 }]
+      },
+      "right": {
+        "label": "Оставить — пусть смотрит",
+        "effects": [
+          { "type": "track", "track": "night", "delta": 1 },
+          { "type": "timer", "id": "genevieve_archive", "delta": 1 }
+        ]
+      },
+      "requires": [{ "timer": "genevieve_archive", "op": ">=", "value": 2 }],
+      "tags": ["deruan_line", "eva"]
+    },
+    {
+      "id": "c07_first_petitioner",
+      "title": "Первый проситель",
+      "deck": "night",
+      "timeOfDay": "глубокая ночь",
+      "face": "У ворот манора — девушка-малокровная, мокрая, голодная: «Говорят, вы не такие, как Париж».",
+      "left": {
+        "label": "Принять под правила домена",
+        "effects": [
+          { "type": "track", "track": "night", "delta": 1 },
+          { "type": "track", "track": "court", "delta": -1 },
+          { "type": "setFlag", "flag": "open_gates" },
+          { "type": "population", "delta": 1 }
+        ]
+      },
+      "right": {
+        "label": "Накормить и выпроводить до рассвета",
+        "effects": [
+          { "type": "track", "track": "night", "delta": -1 },
+          { "type": "track", "track": "court", "delta": 1 },
+          { "type": "setFlag", "flag": "rouen_like_all" }
+        ]
+      },
+      "gmNote": "Не агент Луциана. Но он узнает о решении.",
+      "escalation": "s_petitioner_story",
+      "interlude": 1,
+      "tags": ["lucian_line"]
+    },
+    {
+      "id": "n02_hungry",
+      "title": "Голодные у ворот",
+      "deck": "night",
+      "timeOfDay": "глубокая ночь",
+      "face": "Слух разошёлся. У ворот уже трое малокровных, и один из них — на грани Зверя.",
+      "requires": [{ "flag": "open_gates" }],
+      "left": {
+        "label": "Принять всех",
+        "effects": [
+          { "type": "population", "delta": 3 },
+          { "type": "track", "track": "night", "delta": 2 },
+          { "type": "track", "track": "masquerade", "delta": -1 }
+        ]
+      },
+      "right": {
+        "label": "Принять только одного",
+        "effects": [
+          { "type": "population", "delta": 1 },
+          { "type": "track", "track": "night", "delta": -1 }
+        ]
+      },
+      "idleDefault": "left",
+      "tags": ["capacity_conflict", "lucian_line"]
+    },
+    {
+      "id": "n03_rumors",
+      "title": "Шёпот в доках",
+      "deck": "night",
+      "face": "В доках говорят, что манор кормит бездомных. Смертные тоже слушают.",
+      "left": {
+        "label": "Пустить встречный слух",
+        "effects": [
+          { "type": "track", "track": "masquerade", "delta": 1 },
+          { "type": "track", "track": "night", "delta": -1 }
+        ]
+      },
+      "right": {
+        "label": "Пусть говорят",
+        "effects": [
+          { "type": "track", "track": "night", "delta": 1 },
+          { "type": "track", "track": "masquerade", "delta": -1 }
+        ]
+      },
+      "tags": ["capacity_conflict"]
+    },
+    {
+      "id": "n04_hunter",
+      "title": "Метка охотника",
+      "deck": "night",
+      "timeOfDay": "перед рассветом",
+      "face": "На двери гаража, где спит Мадлен, мелом нарисован крест в круге.",
+      "requires": [{ "flag": "madeleine_exposed" }],
+      "left": {
+        "label": "Спрятать Мадлен",
+        "effects": [
+          { "type": "track", "track": "masquerade", "delta": 1 },
+          { "type": "track", "track": "city", "delta": -1 }
+        ]
+      },
+      "right": {
+        "label": "Устроить засаду",
+        "effects": [
+          { "type": "track", "track": "masquerade", "delta": -2 },
+          { "type": "setFlag", "flag": "hunters_warned" }
+        ]
+      },
+      "escalation": "s_hunter_ambush",
+      "tags": ["wight"]
+    },
+    {
+      "id": "g01_gatekeeper",
+      "title": "Привратник",
+      "deck": "gates",
+      "face": "Старый привратник манора просит отпустить его. Он знает слишком много.",
+      "left": {
+        "label": "Отпустить, стерев память",
+        "effects": [
+          { "type": "track", "track": "masquerade", "delta": 1 },
+          { "type": "track", "track": "city", "delta": -1 }
+        ]
+      },
+      "right": {
+        "label": "Оставить при маноре",
+        "effects": [{ "type": "track", "track": "city", "delta": 1 }, { "type": "setFlag", "flag": "gatekeeper_stays" }]
+      },
+      "interlude": 1,
+      "tags": ["boris"]
+    },
+    {
+      "id": "g02_caravan",
+      "title": "Обоз с севера",
+      "deck": "gates",
+      "face": "Обоз из Одинсфракта просит ночлега. Среди грузчиков — чужие сородичи.",
+      "requires": [{ "anyOf": [{ "flag": "open_gates" }, { "track": "city", "op": ">=", "value": 7 }] }],
+      "left": {
+        "label": "Впустить",
+        "effects": [
+          { "type": "population", "delta": 2 },
+          { "type": "track", "track": "city", "delta": 1 },
+          { "type": "setFlag", "flag": "odinsfrakt_guests" }
+        ]
+      },
+      "right": {
+        "label": "Отправить дальше по реке",
+        "effects": [{ "type": "track", "track": "night", "delta": -1 }]
+      },
+      "tags": ["odinsfrakt"]
+    },
+    {
+      "id": "k01_envoy",
+      "title": "Посланник Луциана",
+      "deck": "court",
+      "speaker": "Посланник",
+      "face": "«Мой господин желает знать, *чей* теперь Руан».",
+      "left": {
+        "label": "«Руан — наш»",
+        "effects": [
+          { "type": "track", "track": "court", "delta": -2 },
+          { "type": "track", "track": "night", "delta": 1 },
+          { "type": "timer", "id": "lucian_patience", "delta": 1 }
+        ]
+      },
+      "right": {
+        "label": "«Руан помнит друзей»",
+        "effects": [{ "type": "track", "track": "court", "delta": 2 }, { "type": "setFlag", "flag": "lucian_friend" }]
+      },
+      "escalation": "s_envoy_talk",
+      "interlude": 1,
+      "tags": ["lucian_line", "magnus"]
+    },
+    {
+      "id": "k02_harpy",
+      "title": "Гарпия",
+      "deck": "court",
+      "face": "Гарпия Элизиума пишет стишок о «домене сирот». Двор смеётся.",
+      "requires": [{ "flag": "open_gates" }],
+      "left": {
+        "label": "Ответить остроумием",
+        "effects": [{ "type": "track", "track": "court", "delta": 1 }]
+      },
+      "right": {
+        "label": "Пригрозить",
+        "effects": [
+          { "type": "track", "track": "court", "delta": -1 },
+          { "type": "track", "track": "night", "delta": 1 }
+        ]
+      }
+    },
+    {
+      "id": "k03_summons",
+      "title": "Вызов к Князю",
+      "deck": "court",
+      "face": "Князь требует объяснений: почему Руан шумит?",
+      "requires": [{ "timer": "lucian_patience", "op": ">=", "value": 2 }],
+      "left": {
+        "label": "Явиться лично",
+        "effects": [{ "type": "track", "track": "court", "delta": 1 }],
+        "opensScene": "s_envoy_talk"
+      },
+      "right": {
+        "label": "Прислать письмо",
+        "effects": [{ "type": "track", "track": "court", "delta": -2 }]
+      }
+    },
+    {
+      "id": "m01_reflection",
+      "title": "Отражение",
+      "deck": "mirror",
+      "face": "Что вы видите, когда смотрите на свой домен? *Отвечайте честно, это не проверка.*",
+      "left": { "label": "Убежище", "effects": [{ "type": "setFlag", "flag": "mirror_refuge" }] },
+      "right": { "label": "Крепость", "effects": [{ "type": "setFlag", "flag": "mirror_fortress" }] },
+      "tags": ["eva", "magnus", "boris"]
+    },
+    {
+      "id": "m02_hunger",
+      "title": "Голод",
+      "deck": "mirror",
+      "face": "Сколько вы готовы отдать, чтобы ваши подопечные не голодали?",
+      "left": {
+        "label": "Столько, сколько нужно",
+        "effects": [{ "type": "track", "track": "capacity", "delta": 1 }, { "type": "track", "track": "city", "delta": -1 }]
+      },
+      "right": {
+        "label": "Не больше, чем у нас есть",
+        "effects": [{ "type": "track", "track": "capacity", "delta": -1 }]
+      }
+    },
+    {
+      "id": "o01_bells",
+      "title": "Колокола",
+      "deck": "omen",
+      "face": "Колокола собора звонят в три часа ночи. Никто из смертных их не слышит."
+    },
+    {
+      "id": "o02_crows",
+      "title": "Вороны",
+      "deck": "omen",
+      "face": "Вороны садятся на ограду манора, все — головой на восток, к Парижу."
+    },
+    {
+      "id": "o03_seine",
+      "title": "Красная Сена",
+      "deck": "omen",
+      "face": "На рассвете вода у набережной кажется красной. К полудню — нет.",
+      "left": { "label": "Это знак", "effects": [{ "type": "track", "track": "night", "delta": 1 }] },
+      "right": { "label": "Это глина", "effects": [{ "type": "note", "text": "Игроки отмахнулись от знамения" }] }
+    }
+  ],
+  "scenes": [
+    {
+      "id": "s_petitioner_story",
+      "title": "История просительницы",
+      "playerText": "Вы выходите к воротам сами. Дождь. Девушка поднимает глаза.",
+      "gmNotes": "Её зовут Ноэми. Её обратили в Париже и бросили. Если спросят про Луциана — пугается.",
+      "outcomes": [
+        {
+          "label": "Ноэми остаётся — под личное поручительство",
+          "effects": [
+            { "type": "setFlag", "flag": "open_gates" },
+            { "type": "setFlag", "flag": "noemi_protege" },
+            { "type": "population", "delta": 1 },
+            { "type": "track", "track": "night", "delta": 1 }
+          ]
+        },
+        {
+          "label": "Ноэми уходит с рекомендательным письмом",
+          "effects": [{ "type": "track", "track": "court", "delta": 1 }, { "type": "setFlag", "flag": "rouen_like_all" }]
+        }
+      ]
+    },
+    {
+      "id": "s_envoy_talk",
+      "title": "Разговор с посланником",
+      "playerText": "Посланник ждёт в малой гостиной. Свечи оплыли. Он улыбается.",
+      "gmNotes": "Посланник — гуль Луциана, связан узами. Предлагает сделку: Руан платит десятину Парижу.",
+      "outcomes": [
+        {
+          "label": "Сделка заключена",
+          "effects": [{ "type": "track", "track": "court", "delta": 2 }, { "type": "setFlag", "flag": "paris_tithe" }]
+        },
+        {
+          "label": "Посланник уезжает ни с чем",
+          "effects": [
+            { "type": "track", "track": "court", "delta": -1 },
+            { "type": "timer", "id": "lucian_patience", "delta": 1 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s_hunter_ambush",
+      "title": "Засада у гаража",
+      "playerText": "Ночь. Гараж. Тихие шаги по гравию.",
+      "gmNotes": "Охотников двое, один — бывший полицейский. Если убить — Маскарад −2.",
+      "outcomes": [
+        { "label": "Охотники схвачены живыми", "effects": [{ "type": "setFlag", "flag": "hunters_captured" }] },
+        {
+          "label": "Охотники ушли",
+          "effects": [{ "type": "track", "track": "masquerade", "delta": -1 }, { "type": "setFlag", "flag": "hunters_warned" }]
+        }
+      ]
+    },
+    {
+      "id": "x_masq_low",
+      "title": "Маскарад трещит",
+      "playerText": "Утренняя газета: «Вампиры Руана?» — с фотографией вашего манора.",
+      "gmNotes": "Шериф требует крови. Нужно назвать виновного или заплатить.",
+      "crisisOf": { "track": "masquerade", "edge": "low" },
+      "outcomes": [
+        { "label": "Назвать виновного", "effects": [{ "type": "track", "track": "court", "delta": -1 }] },
+        { "label": "Заплатить влиянием", "effects": [{ "type": "track", "track": "city", "delta": -2 }] }
+      ]
+    },
+    {
+      "id": "x_masq_high",
+      "title": "Паранойя",
+      "playerText": "Домен так тщательно прячется, что превратился в тюрьму. Ваши сородичи задыхаются.",
+      "crisisOf": { "track": "masquerade", "edge": "high" },
+      "outcomes": [
+        { "label": "Ослабить хватку", "effects": [{ "type": "track", "track": "night", "delta": 1 }] },
+        { "label": "Затянуть ещё туже", "effects": [{ "type": "track", "track": "night", "delta": -2 }] }
+      ]
+    },
+    {
+      "id": "x_court_low",
+      "title": "Изгои",
+      "playerText": "Элизиум закрыт для Руана. Вас не приглашают. Вас не замечают.",
+      "crisisOf": { "track": "court", "edge": "low" },
+      "outcomes": [
+        { "label": "Унизиться перед Князем", "effects": [{ "type": "track", "track": "night", "delta": -1 }] },
+        { "label": "Искать союзников вне Двора", "effects": [{ "type": "setFlag", "flag": "court_outcast" }] }
+      ]
+    },
+    {
+      "id": "x_court_high",
+      "title": "Цепной пёс",
+      "playerText": "Князь доволен. Слишком доволен. Он хочет, чтобы Руан стал его руками.",
+      "crisisOf": { "track": "court", "edge": "high" },
+      "outcomes": [
+        { "label": "Принять поручение", "effects": [{ "type": "track", "track": "night", "delta": -2 }] },
+        { "label": "Вежливо отказаться", "effects": [] }
+      ]
+    },
+    {
+      "id": "x_city_low",
+      "title": "Город отворачивается",
+      "playerText": "Поставщики не везут, мэрия не отвечает, полиция смотрит косо.",
+      "crisisOf": { "track": "city", "edge": "low" },
+      "outcomes": [
+        { "label": "Продать часть имущества", "effects": [{ "type": "track", "track": "capacity", "delta": -1 }] },
+        { "label": "Надавить Доминированием", "effects": [{ "type": "track", "track": "masquerade", "delta": -1 }] }
+      ]
+    },
+    {
+      "id": "x_city_high",
+      "title": "Смертные слишком близко",
+      "playerText": "Манор стал модным местом. Журналисты, меценаты, туристы.",
+      "crisisOf": { "track": "city", "edge": "high" },
+      "outcomes": [
+        { "label": "Закрыть двери", "effects": [{ "type": "track", "track": "court", "delta": -1 }] },
+        { "label": "Устроить бал", "effects": [{ "type": "track", "track": "masquerade", "delta": -1 }] }
+      ]
+    },
+    {
+      "id": "x_night_low",
+      "title": "Мёртвая ночь",
+      "playerText": "Малокровные уходят. Ночная жизнь Руана замирает. Никто больше не приходит к воротам.",
+      "crisisOf": { "track": "night", "edge": "low" },
+      "outcomes": [
+        { "label": "Послать за ушедшими", "effects": [{ "type": "population", "delta": -1 }] },
+        { "label": "Отпустить", "effects": [{ "type": "setFlag", "flag": "night_abandoned" }] }
+      ]
+    },
+    {
+      "id": "x_night_high",
+      "title": "Ночь без хозяина",
+      "playerText": "Улицы Руана принадлежат голодным. Кто-то уже охотится без правил.",
+      "crisisOf": { "track": "night", "edge": "high" },
+      "outcomes": [
+        { "label": "Жёсткий порядок", "effects": [{ "type": "track", "track": "court", "delta": 1 }] },
+        { "label": "Возглавить", "effects": [{ "type": "track", "track": "masquerade", "delta": -2 }] }
+      ]
+    }
+  ]
+}
