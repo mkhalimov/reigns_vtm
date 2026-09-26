@@ -7,7 +7,7 @@ import { gameTimeLabel, TRACK_LABELS } from '../../engine/rules';
 import { parseDeckText } from '../../engine/validate';
 import { parseSave } from '../../engine/save';
 import { publicView } from '../../engine/public';
-import { currentSave, dispatch, loadSave, newGameSameDeck, replaceDeck, useApp } from '../../store';
+import { builtInDeck, currentSave, dispatch, loadSave, newGameSameDeck, replaceDeck, useApp } from '../../store';
 import { Md } from '../Md';
 import { PlayerScreen } from '../PlayerScreen';
 import { DeckTag, download, OptionBlock, readFile, Requires, stamp } from './common';
@@ -113,6 +113,16 @@ export function DeckPanel() {
           >
             ⬆ Импорт из файла
           </button>
+          <button
+            title="Колода «Руан — колода на игру», встроенная в приложение"
+            onClick={() => {
+              setErrors([]);
+              setWarnings([]);
+              setCandidate(builtInDeck);
+            }}
+          >
+            ⚜ Встроенная колода «Руан»
+          </button>
         </div>
         <details>
           <summary>Вставить JSON колоды вручную</summary>
@@ -191,7 +201,7 @@ export function DeckPanel() {
                   <td>{c.interlude ?? ''}</td>
                   <td className="small">
                     {c.requires?.length ? '⚑ ' : ''}
-                    {c.escalation ? `⚡ ${c.escalation}` : ''}
+                    {c.escalation ? `⚡ ${c.escalation === true ? 'импровизация' : c.escalation}` : ''}
                   </td>
                 </tr>
               ))}

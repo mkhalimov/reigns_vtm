@@ -76,7 +76,7 @@ function CurrentCard({ card, game, deck }: { card: Card; game: GameState; deck: 
   const timer = useTimer();
   const seconds = cardTimerSeconds(card, game.settings);
   const hasOptions = Boolean(card.left || card.right);
-  const esc = card.escalation ? deck.scenes.find((s) => s.id === card.escalation) : undefined;
+  const esc = typeof card.escalation === 'string' ? deck.scenes.find((s) => s.id === card.escalation) : undefined;
   return (
     <section className="panel current">
       <div className="panel-head">
@@ -99,6 +99,8 @@ function CurrentCard({ card, game, deck }: { card: Card; game: GameState; deck: 
             ⚡ Эскалация:{' '}
             {esc ? (
               <b>{esc.title}</b>
+            ) : card.escalation === true ? (
+              <b>импровизация (исход вводит GM)</b>
             ) : (
               <label>
                 <input
@@ -131,7 +133,7 @@ function CurrentCard({ card, game, deck }: { card: Card; game: GameState; deck: 
             </button>
           </>
         ) : (
-          <button onClick={() => dispatch(acknowledge)}>Принять знамение</button>
+          <button onClick={() => dispatch(acknowledge)}>{card.deck === 'omen' ? 'Принять знамение' : 'Принять к сведению'}</button>
         )}
         <span className="spacer" />
         {seconds !== null ? (

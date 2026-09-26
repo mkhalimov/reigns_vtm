@@ -175,7 +175,7 @@ export function validateDeck(raw: unknown): DeckParseResult {
     if (s.gmNotes !== undefined && !isStr(s.gmNotes)) errors.push(`${w}: gmNotes должен быть строкой`);
     if (s.outcomes !== undefined && !Array.isArray(s.outcomes)) errors.push(`${w}: outcomes должен быть массивом`);
     if (Array.isArray(s.outcomes)) {
-      if (s.outcomes.length !== 2) warnings.push(`${w}: ожидается 2 исхода, найдено ${s.outcomes.length}`);
+      if (s.outcomes.length !== 2 && s.outcomes.length !== 0) warnings.push(`${w}: ожидается 2 исхода, найдено ${s.outcomes.length}`);
       s.outcomes.forEach((o, j) => checkOption(o, `${w}, исход ${j + 1}`, errors));
     }
     if (s.crisisOf !== undefined) {
@@ -199,12 +199,16 @@ export function validateDeck(raw: unknown): DeckParseResult {
     if (!(DECKS as readonly unknown[]).includes(c.deck))
       errors.push(`${w}: неизвестная колода "${String(c.deck)}" (ожидается: ${DECKS.join(', ')})`);
     if (!isStr(c.face) || !c.face.trim()) errors.push(`${w}: нет текста лица (face)`);
-    const needOptions = c.deck !== 'omen';
+    // Без обоих вариантов — карта «без выбора» (знамение, напоминание); ровно один вариант — ошибка.
+    const noOptions = c.left === undefined && c.right === undefined;
+    if (noOptions && c.deck !== 'omen') warnings.push(`${w}: карта без вариантов — будет «принять к сведению»`);
     for (const side of ['left', 'right'] as const) {
       if (c[side] === undefined) {
-        if (needOptions) errors.push(`${w}: нет варианта ${side === 'left' ? 'left ◀' : 'right ▶'}`);
+        if (!noOptions) errors.push(`${w}: нет варианта ${side === 'left' ? 'left ◀' : 'right ▶'}`);
       } else checkOption(c[side], `${w}, вариант ${side}`, errors);
     }
+    if (c.escalation !== undefined && c.escalation !== true && !(isStr(c.escalation) && c.escalation))
+      errors.push(`${w}: escalation должен быть id сцены или true`);
     if (c.requires !== undefined) {
       if (!Array.isArray(c.requires)) errors.push(`${w}: requires должен быть массивом условий`);
       else c.requires.forEach((r, j) => checkCondition(r, `${w}, условие ${j + 1}`, errors));
@@ -217,7 +221,7 @@ export function validateDeck(raw: unknown): DeckParseResult {
       errors.push(`${w}: tags должен быть массивом строк`);
     if (c.idleDefault !== undefined && c.idleDefault !== 'left' && c.idleDefault !== 'right')
       errors.push(`${w}: idleDefault должен быть "left" или "right"`);
-    for (const f of ['timeOfDay', 'speaker', 'image', 'gmNote', 'escalation'] as const)
+    for (const f of ['timeOfDay', 'speaker', 'image', 'gmNote'] as const)
       if (c[f] !== undefined && !isStr(c[f])) errors.push(`${w}: ${f} должен быть строкой`);
   });
 
@@ -247,7 +251,7 @@ export function validateDeck(raw: unknown): DeckParseResult {
   };
   deck.cards.forEach((c, i) => {
     const w = cardName(c, i);
-    refScene(c.escalation, `${w}, escalation`);
+    if (typeof c.escalation === 'string') refScene(c.escalation, `${w}, escalation`);
     refOption(c.left, `${w}, вариант left`);
     refOption(c.right, `${w}, вариант right`);
   });

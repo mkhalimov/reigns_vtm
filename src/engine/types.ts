@@ -58,7 +58,8 @@ export interface Card {
   right?: Option;
   gmNote?: string;
   requires?: Condition[];
-  escalation?: string;
+  /** Связанная сцена ⚡; true — эскалация без заготовки (сцена импровизируется, исход вводит GM). */
+  escalation?: string | true;
   /** Секунды; null — без таймера. По умолчанию 60, для mirror — null. */
   timer?: number | null;
   oneShot?: boolean;

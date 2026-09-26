@@ -1,6 +1,6 @@
 // Единый стор партии: колода + состояние + история для undo. Автосохранение после каждого действия.
 import { useSyncExternalStore } from 'react';
-import demoDeck from '../data/demo-deck.json';
+import rouenDeck from '../data/rouen-deck.json';
 import type { DeckData, GameState } from './engine/types';
 import { migrateState, newGame, type Ctx } from './engine/game';
 import { validateDeck } from './engine/validate';
@@ -21,12 +21,13 @@ export interface AppState {
   lastSavedAt: string | null;
 }
 
-const demo = validateDeck(demoDeck).deck!;
+/** Встроенная колода по умолчанию: data/rouen-deck.json. */
+export const builtInDeck = validateDeck(rouenDeck).deck!;
 
 let state: AppState = {
   loaded: false,
-  deck: demo,
-  game: newGame(demo),
+  deck: builtInDeck,
+  game: newGame(builtInDeck),
   history: [],
   view: 'gm',
   lastSavedAt: null,

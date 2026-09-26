@@ -198,7 +198,7 @@ function CardView({
       ) : (
         <div className="options">
           <button className="option single" onClick={onAck}>
-            Принять знамение
+            {card.deck === 'omen' ? 'Принять знамение' : 'Принять к сведению'}
           </button>
         </div>
       )}

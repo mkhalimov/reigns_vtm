@@ -390,8 +390,9 @@ export function acknowledge(state: GameState, ctx: Ctx): GameState {
   const view = currentView(state, ctx.deck);
   if (view.kind !== 'card' || view.card.left || view.card.right) return state;
   const s = clone(state);
-  finishCard(s, ctx, view.card, { cardId: view.card.id, title: view.card.title, decision: 'Знамение принято', side: 'ack' });
-  log(s, ctx, 'card', `«${view.card.title}» — знамение.`, [view.card.id]);
+  const omen = view.card.deck === 'omen';
+  finishCard(s, ctx, view.card, { cardId: view.card.id, title: view.card.title, decision: omen ? 'Знамение принято' : 'Принято к сведению', side: 'ack' });
+  log(s, ctx, 'card', `«${view.card.title}»${omen ? ' — знамение.' : ''}`, [view.card.id]);
   s.reveal = null;
   flushDuePendingCards(s);
   settle(s, ctx);
@@ -413,9 +414,9 @@ export function escalate(state: GameState, ctx: Ctx): GameState {
   const extra = routine.length ? pick(routine, rng) : fallback.length ? pick(fallback, rng) : undefined;
   if (extra) s.interlude.queue.push(extra.id);
   const penaltyTrack = pick([...CRISIS_TRACKS], rng);
-  s.sceneQueue.push({ kind: 'escalation', id: `r${s.nextId++}`, sceneId: card.escalation, cardId: card.id, penaltyTrack });
+  s.sceneQueue.push({ kind: 'escalation', id: `r${s.nextId++}`, sceneId: typeof card.escalation === 'string' ? card.escalation : undefined, cardId: card.id, penaltyTrack });
   log(s, ctx, 'escalation', `«${card.title}» — разбираемся лично.`, [
-    `⚡ ${card.escalation ?? 'сцена без заготовки'}`,
+    `⚡ ${typeof card.escalation === 'string' ? card.escalation : 'сцена без заготовки'}`,
     extra ? `Цена времени: ➕ рутина «${extra.title}» (${extra.id})` : 'Цена времени: нет доступной карты рутины',
     `Предложенная шкала для −1: ${TRACK_LABELS[penaltyTrack]}`,
   ]);

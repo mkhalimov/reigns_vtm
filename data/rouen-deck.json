@@ -1,0 +1,2203 @@
+{
+  "title": "Руан — колода на игру",
+  "plotTimers": [
+    {
+      "id": "genevieve_archive",
+      "title": "Архив Женевьевы",
+      "max": 4
+    }
+  ],
+  "cards": [
+    {
+      "id": "c01_keys",
+      "title": "Ключи от манора",
+      "deck": "court",
+      "face": "Управляющий гулей-слуг просит решить, кто из прежней прислуги де Руанов останется.",
+      "left": {
+        "label": "Оставить старых слуг",
+        "effects": [
+          {
+            "type": "track",
+            "track": "city",
+            "delta": 1
+          },
+          {
+            "type": "setFlag",
+            "flag": "старые_слуги"
+          }
+        ],
+        "gmNote": "Дом работает. Среди старых слуг есть уши Женевьевы."
+      },
+      "right": {
+        "label": "Выгнать всех, набрать своих",
+        "effects": [
+          {
+            "type": "track",
+            "track": "masquerade",
+            "delta": 1
+          },
+          {
+            "type": "track",
+            "track": "city",
+            "delta": -1
+          }
+        ],
+        "gmNote": "Дом месяц «не слушается»."
+      },
+      "speaker": "Управляющий",
+      "tags": [
+        "genevieve"
+      ],
+      "interlude": 1
+    },
+    {
+      "id": "c02_one_question",
+      "title": "Один вопрос в год",
+      "deck": "court",
+      "face": "Барбаро ждёт запрос этого года.",
+      "left": {
+        "label": "Книги по кровавому чародейству (Магнус)",
+        "effects": [
+          {
+            "type": "setFlag",
+            "flag": "книги_Вены"
+          }
+        ]
+      },
+      "right": {
+        "label": "Знания о призраках и Покрове (Борис)",
+        "effects": [
+          {
+            "type": "setFlag",
+            "flag": "знание_Покрова"
+          }
+        ]
+      },
+      "speaker": "Барбаро",
+      "escalation": true,
+      "tags": [
+        "magnus",
+        "boris"
+      ],
+      "interlude": 1
+    },
+    {
+      "id": "c03_steps",
+      "title": "Шаги в пустых комнатах",
+      "deck": "deruan",
+      "face": "Слуги слышат ночью детский плач в западном крыле.",
+      "left": {
+        "label": "Запереть крыло",
+        "effects": [
+          {
+            "type": "track",
+            "track": "masquerade",
+            "delta": 1
+          },
+          {
+            "type": "setFlag",
+            "flag": "крыло_заперто"
+          }
+        ],
+        "gmNote": "Призраки копят злобу."
+      },
+      "right": {
+        "label": "Борис идёт слушать",
+        "effects": [],
+        "opensScene": "s_a_dead_masters"
+      },
+      "escalation": "s_a_dead_masters",
+      "tags": [
+        "boris",
+        "mirror"
+      ],
+      "gmNote": "В исходнике: ДЕ РУАН/ЗЕРКАЛО.",
+      "interlude": 1
+    },
+    {
+      "id": "c04_flight_school",
+      "title": "Лётная школа ищет спонсора",
+      "deck": "gates",
+      "face": "Лётная школа ищет спонсора.",
+      "left": {
+        "label": "Войти деньгами",
+        "effects": [
+          {
+            "type": "track",
+            "track": "city",
+            "delta": 1
+          },
+          {
+            "type": "setFlag",
+            "flag": "аэро_1"
+          }
+        ]
+      },
+      "right": {
+        "label": "Надавить на директора",
+        "effects": [
+          {
+            "type": "track",
+            "track": "masquerade",
+            "delta": -1
+          },
+          {
+            "type": "setFlag",
+            "flag": "аэро_1"
+          }
+        ],
+        "gmNote": "Директор боится."
+      },
+      "tags": [
+        "magnus",
+        "aero"
+      ],
+      "gmNote": "Магнус I-1.",
+      "interlude": 1
+    },
+    {
+      "id": "c05_whom_to_feed",
+      "title": "Кого поить?",
+      "deck": "routine",
+      "face": "Трое кандидатов в гули: директор аэропорта, лидер докеров, заместитель мэра. И ещё — комиссар полиции из «старых семейных».",
+      "left": {
+        "label": "Директор аэропорта / лидер докеров / зам мэра",
+        "effects": [
+          {
+            "type": "setFlag",
+            "flag": "гуль_есть"
+          }
+        ],
+        "gmNote": "Уточните, кого выбрали, и поставьте флаг вручную: гуль_директор / гуль_докер / гуль_мэр."
+      },
+      "right": {
+        "label": "Комиссар полиции из «старых семейных»",
+        "effects": [
+          {
+            "type": "track",
+            "track": "masquerade",
+            "delta": 1
+          },
+          {
+            "type": "setFlag",
+            "flag": "гуль_комиссар"
+          },
+          {
+            "type": "setFlag",
+            "flag": "гуль_есть"
+          }
+        ],
+        "gmNote": "Ловушка Женевьевы."
+      },
+      "escalation": true,
+      "tags": [
+        "magnus",
+        "genevieve"
+      ],
+      "gmNote": "Магнус II.",
+      "interlude": 1
+    },
+    {
+      "id": "c06_where_to_graze",
+      "title": "Где пастись?",
+      "deck": "routine",
+      "face": "Домену нужно стадо. Где кормиться?",
+      "left": {
+        "label": "Благотворительная столовая",
+        "effects": [
+          {
+            "type": "track",
+            "track": "city",
+            "delta": 1
+          },
+          {
+            "type": "track",
+            "track": "capacity",
+            "delta": 1
+          },
+          {
+            "type": "setFlag",
+            "flag": "стадо_бедные"
+          }
+        ]
+      },
+      "right": {
+        "label": "Художественная богема в брошенных цехах",
+        "effects": [
+          {
+            "type": "track",
+            "track": "capacity",
+            "delta": 1
+          },
+          {
+            "type": "track",
+            "track": "masquerade",
+            "delta": -1
+          },
+          {
+            "type": "setFlag",
+            "flag": "стадо_богема"
+          }
+        ]
+      },
+      "tags": [
+        "eva"
+      ],
+      "gmNote": "Ева II.",
+      "interlude": 1
+    },
+    {
+      "id": "c07_first_petitioner",
+      "title": "Первый проситель",
+      "deck": "night",
+      "face": "У ворот манора — мокрая малокровная.",
+      "left": {
+        "label": "Принять",
+        "effects": [
+          {
+            "type": "track",
+            "track": "night",
+            "delta": 1
+          },
+          {
+            "type": "track",
+            "track": "court",
+            "delta": -1
+          },
+          {
+            "type": "setFlag",
+            "flag": "открытые_ворота"
+          },
+          {
+            "type": "population",
+            "delta": 1
+          }
+        ]
+      },
+      "right": {
+        "label": "Накормить и выпроводить",
+        "effects": [
+          {
+            "type": "track",
+            "track": "night",
+            "delta": -1
+          },
+          {
+            "type": "track",
+            "track": "court",
+            "delta": 1
+          },
+          {
+            "type": "setFlag",
+            "flag": "Руан_как_все"
+          }
+        ]
+      },
+      "escalation": true,
+      "tags": [
+        "thinbloods"
+      ],
+      "interlude": 1
+    },
+    {
+      "id": "c08_letter_petersburg",
+      "title": "Письмо из Петербурга",
+      "deck": "night",
+      "face": "Гельц поздравляет и спрашивает про «место для скромной библиотеки».",
+      "left": {
+        "label": "Пригласить",
+        "effects": [
+          {
+            "type": "setFlag",
+            "flag": "Гельц_едет"
+          },
+          {
+            "type": "track",
+            "track": "court",
+            "delta": -1
+          }
+        ],
+        "gmNote": "Тремер в домене Вийона без спроса."
+      },
+      "right": {
+        "label": "Вежливо отложить",
+        "effects": [
+          {
+            "type": "setFlag",
+            "flag": "Гельц_ждёт"
+          }
+        ],
+        "gmNote": "Он запомнит."
+      },
+      "speaker": "Гельц",
+      "tags": [
+        "geltz"
+      ],
+      "interlude": 1
+    },
+    {
+      "id": "c09_dog_pier",
+      "title": "Собака на дальнем причале",
+      "deck": "gates",
+      "face": "Собака на дальнем причале.",
+      "left": {
+        "label": "Усиленное патрулирование",
+        "effects": [
+          {
+            "type": "track",
+            "track": "city",
+            "delta": 1
+          },
+          {
+            "type": "setFlag",
+            "flag": "причал_закрыт"
+          }
+        ]
+      },
+      "right": {
+        "label": "Убрать охрану «для нужд арендатора»",
+        "effects": [
+          {
+            "type": "track",
+            "track": "masquerade",
+            "delta": 1
+          },
+          {
+            "type": "track",
+            "track": "city",
+            "delta": -1
+          },
+          {
+            "type": "setFlag",
+            "flag": "причал_наш"
+          }
+        ]
+      },
+      "escalation": true,
+      "interlude": 1
+    },
+    {
+      "id": "c10_thibault_man",
+      "title": "Человек Тибо",
+      "deck": "deruan",
+      "face": "У стен манора третий раз ходит «бродяга».",
+      "left": {
+        "label": "Отпустить, проследив",
+        "effects": [
+          {
+            "type": "setFlag",
+            "flag": "Тибо_осмелел"
+          }
+        ]
+      },
+      "right": {
+        "label": "Допросить",
+        "effects": [
+          {
+            "type": "track",
+            "track": "masquerade",
+            "delta": -1
+          },
+          {
+            "type": "setFlag",
+            "flag": "Тибо_насторожен"
+          }
+        ],
+        "opensScene": "s_b_vagrant"
+      },
+      "escalation": "s_b_vagrant",
+      "tags": [
+        "thibault"
+      ],
+      "interlude": 1
+    },
+    {
+      "id": "c11_mayor",
+      "title": "Мэр просит аудиенции",
+      "deck": "routine",
+      "face": "«Новые владельцы поместья» — инвесторы? Мэру нужен кто угодно.",
+      "left": {
+        "label": "Пообещать деньги",
+        "effects": [
+          {
+            "type": "track",
+            "track": "city",
+            "delta": 1
+          },
+          {
+            "type": "setFlag",
+            "flag": "мэр_должник"
+          },
+          {
+            "type": "note",
+            "text": "Казна −"
+          }
+        ]
+      },
+      "right": {
+        "label": "Держать дистанцию",
+        "effects": [
+          {
+            "type": "track",
+            "track": "masquerade",
+            "delta": 1
+          },
+          {
+            "type": "track",
+            "track": "city",
+            "delta": -1
+          }
+        ]
+      },
+      "speaker": "Мэр",
+      "interlude": 1
+    },
+    {
+      "id": "c12_sermon",
+      "title": "Проповедь в Сен-Маклу",
+      "deck": "deruan",
+      "face": "Молодой кюре проповедует о «волках в овчарне».",
+      "left": {
+        "label": "Не трогать",
+        "effects": [
+          {
+            "type": "setFlag",
+            "flag": "приход_растёт"
+          }
+        ]
+      },
+      "right": {
+        "label": "Убрать руками смертных",
+        "effects": [
+          {
+            "type": "track",
+            "track": "city",
+            "delta": -1
+          },
+          {
+            "type": "setFlag",
+            "flag": "мученик"
+          }
+        ]
+      },
+      "tags": [
+        "cure"
+      ],
+      "interlude": 1
+    },
+    {
+      "id": "c13_birds_west",
+      "title": "Птицы летят на запад",
+      "deck": "omen",
+      "face": "Птицы летят на запад.",
+      "interlude": 1
+    },
+    {
+      "id": "c14_mustang",
+      "title": "Мустанг во дворе",
+      "deck": "mirror",
+      "face": "Мустанг во дворе.",
+      "left": {
+        "label": "Продать",
+        "effects": [],
+        "gmNote": "Ничего не меняется."
+      },
+      "right": {
+        "label": "Оставить и выходить",
+        "effects": [
+          {
+            "type": "setFlag",
+            "flag": "мустанг"
+          }
+        ],
+        "gmNote": "Голконда."
+      },
+      "tags": [
+        "magnus"
+      ],
+      "interlude": 1
+    },
+    {
+      "id": "c15_dream",
+      "title": "Сон о Мечте",
+      "deck": "mirror",
+      "face": "Сон о Мечте.",
+      "left": {
+        "label": "Не искать сна",
+        "effects": [],
+        "gmNote": "Голод как есть."
+      },
+      "right": {
+        "label": "Лечь у Старого рынка",
+        "effects": [
+          {
+            "type": "note",
+            "text": "Голод Евы +1"
+          }
+        ],
+        "opensScene": "s_v_bonfire"
+      },
+      "escalation": "s_v_bonfire",
+      "tags": [
+        "eva"
+      ],
+      "interlude": 1
+    },
+    {
+      "id": "c16_report_deadline",
+      "title": "Срок первого отчёта",
+      "deck": "court",
+      "face": "Париж ждёт первый отчёт о домене — к концу следующего сезона.",
+      "gmNote": "Таймер: отчёт к концу Интерлюдии II (карта 30 «Первый отчёт в Париж»).",
+      "interlude": 1
+    },
+    {
+      "id": "c17_strange_passengers",
+      "title": "Странные пассажиры",
+      "deck": "gates",
+      "face": "«Заказчик платит вдвое за тихих холодных людей на ту сторону».",
+      "left": {
+        "label": "Разрешить и брать долю",
+        "effects": [
+          {
+            "type": "track",
+            "track": "masquerade",
+            "delta": -1
+          },
+          {
+            "type": "setFlag",
+            "flag": "Уайт_1"
+          }
+        ]
+      },
+      "right": {
+        "label": "Запретить маршрут",
+        "effects": [
+          {
+            "type": "track",
+            "track": "masquerade",
+            "delta": 1
+          },
+          {
+            "type": "track",
+            "track": "city",
+            "delta": -1
+          },
+          {
+            "type": "setFlag",
+            "flag": "Уайт_1_блок"
+          }
+        ]
+      },
+      "speaker": "Посредник",
+      "tags": [
+        "wight"
+      ],
+      "gmNote": "Уайт-1.",
+      "interlude": 2
+    },
+    {
+      "id": "c18_flight_logs",
+      "title": "Журналы ночных рейсов",
+      "deck": "gates",
+      "face": "Журналы ночных рейсов лётной школы.",
+      "left": {
+        "label": "Забрать архив",
+        "effects": [
+          {
+            "type": "setFlag",
+            "flag": "аэро_2"
+          },
+          {
+            "type": "track",
+            "track": "masquerade",
+            "delta": -1
+          }
+        ],
+        "gmNote": "Оператор заметит пропажу."
+      },
+      "right": {
+        "label": "Снять копию",
+        "effects": [
+          {
+            "type": "setFlag",
+            "flag": "аэро_2"
+          }
+        ],
+        "gmNote": "Медленнее на карту."
+      },
+      "requires": [
+        {
+          "flag": "аэро_1"
+        }
+      ],
+      "tags": [
+        "magnus",
+        "aero"
+      ],
+      "interlude": 2
+    },
+    {
+      "id": "c19_blood_speaks",
+      "title": "Кровь говорит с вещами",
+      "deck": "mirror",
+      "face": "Гуль жалуется: «лифт не хочет ехать».",
+      "left": {
+        "label": "Поить чаще",
+        "effects": [
+          {
+            "type": "setFlag",
+            "flag": "гуль_безумие"
+          }
+        ],
+        "gmNote": "Гуль полезнее, безумие +1."
+      },
+      "right": {
+        "label": "Реже поить",
+        "effects": [
+          {
+            "type": "setFlag",
+            "flag": "гуль_ищет_кровь"
+          }
+        ],
+        "gmNote": "Начнёт искать кровь сам."
+      },
+      "requires": [
+        {
+          "flag": "гуль_есть"
+        }
+      ],
+      "tags": [
+        "magnus"
+      ],
+      "interlude": 2
+    },
+    {
+      "id": "c20_canteen_bill",
+      "title": "Счёт из столовой",
+      "deck": "routine",
+      "face": "Очередь в столовой выросла втрое, соцслужбы интересуются, кто спонсор.",
+      "left": {
+        "label": "Оформить фонд официально",
+        "effects": [
+          {
+            "type": "track",
+            "track": "city",
+            "delta": 1
+          },
+          {
+            "type": "track",
+            "track": "masquerade",
+            "delta": -1
+          }
+        ]
+      },
+      "right": {
+        "label": "Урезать раздачу",
+        "effects": [
+          {
+            "type": "track",
+            "track": "city",
+            "delta": -1
+          },
+          {
+            "type": "note",
+            "text": "Ева: Убеждения под вопросом"
+          }
+        ]
+      },
+      "requires": [
+        {
+          "flag": "стадо_бедные"
+        }
+      ],
+      "tags": [
+        "eva"
+      ],
+      "interlude": 2
+    },
+    {
+      "id": "c21_exhibition",
+      "title": "Выставка в цеху",
+      "deck": "routine",
+      "face": "Художники хотят показ «в честь мецената».",
+      "left": {
+        "label": "Разрешить",
+        "effects": [
+          {
+            "type": "track",
+            "track": "city",
+            "delta": 1
+          },
+          {
+            "type": "track",
+            "track": "masquerade",
+            "delta": -1
+          }
+        ],
+        "gmNote": "Пресса."
+      },
+      "right": {
+        "label": "Запретить",
+        "effects": [
+          {
+            "type": "track",
+            "track": "capacity",
+            "delta": -1
+          }
+        ],
+        "gmNote": "Богема обижена."
+      },
+      "requires": [
+        {
+          "flag": "стадо_богема"
+        }
+      ],
+      "tags": [
+        "eva"
+      ],
+      "interlude": 2
+    },
+    {
+      "id": "c22_more_thinbloods",
+      "title": "Малокровные за первой",
+      "deck": "night",
+      "face": "Пришли ещё трое: «она сказала, тут примут».",
+      "left": {
+        "label": "Принять",
+        "effects": [
+          {
+            "type": "track",
+            "track": "night",
+            "delta": 1
+          },
+          {
+            "type": "track",
+            "track": "court",
+            "delta": -1
+          },
+          {
+            "type": "population",
+            "delta": 3
+          }
+        ],
+        "gmNote": "📦 под давлением."
+      },
+      "right": {
+        "label": "Отказать",
+        "effects": [
+          {
+            "type": "track",
+            "track": "night",
+            "delta": -1
+          },
+          {
+            "type": "setFlag",
+            "flag": "слух_Руан_закрыт"
+          }
+        ]
+      },
+      "requires": [
+        {
+          "flag": "открытые_ворота"
+        }
+      ],
+      "tags": [
+        "thinbloods",
+        "capacity_conflict"
+      ],
+      "interlude": 2
+    },
+    {
+      "id": "c23_marauders",
+      "title": "Мародёры с востока",
+      "deck": "night",
+      "face": "Двое шабашитов охотятся на плато без спроса.",
+      "left": {
+        "label": "Выгнать силой",
+        "effects": [
+          {
+            "type": "track",
+            "track": "night",
+            "delta": 1
+          }
+        ],
+        "opensScene": "s_marauders"
+      },
+      "right": {
+        "label": "Обложить данью и терпеть",
+        "effects": [
+          {
+            "type": "track",
+            "track": "night",
+            "delta": -1
+          },
+          {
+            "type": "track",
+            "track": "masquerade",
+            "delta": -1
+          }
+        ]
+      },
+      "escalation": "s_marauders",
+      "tags": [
+        "sabbat",
+        "capacity_conflict"
+      ],
+      "interlude": 2
+    },
+    {
+      "id": "c24_prophet",
+      "title": "Бродячий пророк",
+      "deck": "night",
+      "face": "Сородич с выжженными глазами бормочет у вокзала о «Праотце».",
+      "left": {
+        "label": "Приютить",
+        "effects": [
+          {
+            "type": "setFlag",
+            "flag": "пророк_у_нас"
+          },
+          {
+            "type": "track",
+            "track": "court",
+            "delta": -1
+          },
+          {
+            "type": "track",
+            "track": "capacity",
+            "delta": -1
+          },
+          {
+            "type": "population",
+            "delta": 1
+          }
+        ]
+      },
+      "right": {
+        "label": "Прогнать",
+        "effects": [
+          {
+            "type": "setFlag",
+            "flag": "пророк_ушёл"
+          }
+        ],
+        "gmNote": "Его услышат другие."
+      },
+      "escalation": true,
+      "tags": [
+        "eva",
+        "prophets"
+      ],
+      "gmNote": "В исходнике: НОЧЬ/ЗНАМЕНИЕ.",
+      "interlude": 2
+    },
+    {
+      "id": "c25_lavoie_invite",
+      "title": "Приглашение сэра Лавуа",
+      "deck": "court",
+      "face": "Сэр Лавуа желает нанести визит в манор.",
+      "left": {
+        "label": "Принять с почестями",
+        "effects": [
+          {
+            "type": "track",
+            "track": "court",
+            "delta": 1
+          },
+          {
+            "type": "setFlag",
+            "flag": "Лавуа_видел_дом"
+          }
+        ],
+        "opensScene": "s_g_visit"
+      },
+      "right": {
+        "label": "Отложить",
+        "effects": [
+          {
+            "type": "track",
+            "track": "court",
+            "delta": -1
+          }
+        ],
+        "gmNote": "Шёпот при дворе."
+      },
+      "escalation": "s_g_visit",
+      "tags": [
+        "lavoie"
+      ],
+      "interlude": 2
+    },
+    {
+      "id": "c26_commissar_loses",
+      "title": "Комиссар «теряет» дело",
+      "deck": "deruan",
+      "face": "Дело о пропаже исчезло без приказа.",
+      "left": {
+        "label": "Спросить у гуля",
+        "effects": [
+          {
+            "type": "setFlag",
+            "flag": "комиссар_врёт"
+          }
+        ],
+        "gmNote": "Он служит двоим."
+      },
+      "right": {
+        "label": "Не заметить",
+        "effects": [
+          {
+            "type": "track",
+            "track": "masquerade",
+            "delta": 1
+          },
+          {
+            "type": "timer",
+            "id": "genevieve_archive",
+            "delta": 1
+          }
+        ],
+        "gmNote": "Женевьева на стадию ближе к цели."
+      },
+      "requires": [
+        {
+          "flag": "гуль_комиссар"
+        }
+      ],
+      "tags": [
+        "genevieve"
+      ],
+      "interlude": 2
+    },
+    {
+      "id": "c27_cache",
+      "title": "Схрон на складе №1",
+      "deck": "gates",
+      "face": "Опечатанный склад, аренда оплачивается.",
+      "left": {
+        "label": "Вскрыть",
+        "effects": [
+          {
+            "type": "setFlag",
+            "flag": "схрон_1"
+          }
+        ],
+        "gmNote": "Оружие/картотеки. Маячок Тибо."
+      },
+      "right": {
+        "label": "Следить, кто платит",
+        "effects": [
+          {
+            "type": "setFlag",
+            "flag": "плательщик"
+          }
+        ],
+        "gmNote": "Выведет на сеть Женевьевы."
+      },
+      "escalation": true,
+      "tags": [
+        "thibault",
+        "genevieve"
+      ],
+      "interlude": 2
+    },
+    {
+      "id": "c28_dockers",
+      "title": "Докеры бастуют",
+      "deck": "routine",
+      "face": "Сокращения в порту: докеры перекрыли круизный причал.",
+      "left": {
+        "label": "Поддержать профсоюз (деньги/влияние)",
+        "effects": [
+          {
+            "type": "track",
+            "track": "city",
+            "delta": 1
+          },
+          {
+            "type": "track",
+            "track": "court",
+            "delta": -1
+          },
+          {
+            "type": "setFlag",
+            "flag": "порт_наш"
+          }
+        ],
+        "gmNote": "Круизы Парижа сорвались."
+      },
+      "right": {
+        "label": "Сломать забастовку",
+        "effects": [
+          {
+            "type": "track",
+            "track": "city",
+            "delta": -2
+          },
+          {
+            "type": "track",
+            "track": "court",
+            "delta": 1
+          }
+        ]
+      },
+      "interlude": 2
+    },
+    {
+      "id": "c29_watch",
+      "title": "Кюре собирает дозор",
+      "deck": "deruan",
+      "face": "Ночные обходы квартала «от волков».",
+      "left": {
+        "label": "Терпеть",
+        "effects": [
+          {
+            "type": "track",
+            "track": "masquerade",
+            "delta": 1
+          }
+        ],
+        "gmNote": "Город бдит; охотиться в квартале негде."
+      },
+      "right": {
+        "label": "Разогнать через полицию",
+        "effects": [
+          {
+            "type": "track",
+            "track": "city",
+            "delta": -1
+          },
+          {
+            "type": "setFlag",
+            "flag": "дозор_в_подполье"
+          }
+        ]
+      },
+      "requires": [
+        {
+          "flag": "приход_растёт"
+        }
+      ],
+      "tags": [
+        "cure"
+      ],
+      "interlude": 2
+    },
+    {
+      "id": "c30_first_report",
+      "title": "Первый отчёт в Париж",
+      "deck": "court",
+      "face": "Пора отправить первый отчёт в Париж. Пишите его сами.",
+      "left": {
+        "label": "Честный",
+        "effects": [],
+        "gmNote": "👑 ± по фактам — поправьте Двор вручную. Лавуа нечего копать."
+      },
+      "right": {
+        "label": "Приукрашенный",
+        "effects": [
+          {
+            "type": "track",
+            "track": "court",
+            "delta": 2
+          },
+          {
+            "type": "setFlag",
+            "flag": "ложь_двору"
+          }
+        ]
+      },
+      "escalation": true,
+      "timer": null,
+      "tags": [
+        "lavoie"
+      ],
+      "gmNote": "Игроки пишут отчёт сами.",
+      "interlude": 2
+    },
+    {
+      "id": "c31_assamite",
+      "title": "Ассамит на пороге",
+      "deck": "night",
+      "face": "Выживший из разведки похода Одина: «Метка Рагнарёка ещё горит».",
+      "left": {
+        "label": "Приютить",
+        "effects": [
+          {
+            "type": "track",
+            "track": "night",
+            "delta": 1
+          },
+          {
+            "type": "setFlag",
+            "flag": "ассамит"
+          },
+          {
+            "type": "population",
+            "delta": 1
+          }
+        ],
+        "gmNote": "Кровь-учитель для Магнуса."
+      },
+      "right": {
+        "label": "Проводить дальше",
+        "effects": [],
+        "gmNote": "Ничего."
+      },
+      "tags": [
+        "odinsfrakt",
+        "magnus"
+      ],
+      "gmNote": "🟡 (пометка из исходника).",
+      "interlude": 2
+    },
+    {
+      "id": "c32_mankada_letter",
+      "title": "Письмо от Манкады",
+      "deck": "mirror",
+      "face": "«Как поживает крестик?»",
+      "left": {
+        "label": "Ответить",
+        "effects": [
+          {
+            "type": "setFlag",
+            "flag": "Манкада_пишет"
+          }
+        ],
+        "gmNote": "Линия силы."
+      },
+      "right": {
+        "label": "Сжечь письмо",
+        "effects": [],
+        "gmNote": "Ничего; крестик на груди теплеет."
+      },
+      "speaker": "Манкада",
+      "tags": [
+        "boris"
+      ],
+      "interlude": 2
+    },
+    {
+      "id": "c33_stars_blink",
+      "title": "Звёзды мигают",
+      "deck": "omen",
+      "face": "В одну ночь над Нормандией на секунду гаснет всё уличное освещение.",
+      "interlude": 2
+    },
+    {
+      "id": "c34_skipper",
+      "title": "Шкипер из Фекана",
+      "deck": "gates",
+      "face": "«Огни на Уайте, где их не должно быть».",
+      "left": {
+        "label": "Нанять шкипера",
+        "effects": [
+          {
+            "type": "setFlag",
+            "flag": "Уайт_2"
+          }
+        ],
+        "gmNote": "Позже — сцена «Вылазка в Фекан» (откройте вручную)."
+      },
+      "right": {
+        "label": "Отдать сведения Барбаро",
+        "effects": [
+          {
+            "type": "track",
+            "track": "court",
+            "delta": 2
+          },
+          {
+            "type": "setFlag",
+            "flag": "Уайт_сдан"
+          }
+        ],
+        "gmNote": "Двор идёт первым."
+      },
+      "requires": [
+        {
+          "anyOf": [
+            {
+              "flag": "Уайт_1"
+            },
+            {
+              "flag": "Уайт_1_блок"
+            }
+          ]
+        }
+      ],
+      "tags": [
+        "wight"
+      ],
+      "gmNote": "Уайт-2.",
+      "interlude": 3
+    },
+    {
+      "id": "c35_plane",
+      "title": "Борт на стоянке",
+      "deck": "gates",
+      "face": "Борт на стоянке аэропорта.",
+      "left": {
+        "label": "Вскрыть",
+        "effects": [
+          {
+            "type": "setFlag",
+            "flag": "аэро_наш"
+          }
+        ],
+        "opensScene": "s_d_sky_cache"
+      },
+      "right": {
+        "label": "Купить борт через подставных",
+        "effects": [
+          {
+            "type": "setFlag",
+            "flag": "аэро_наш"
+          },
+          {
+            "type": "note",
+            "text": "Казна −"
+          }
+        ],
+        "gmNote": "Тихо, маячок не сработал."
+      },
+      "requires": [
+        {
+          "flag": "аэро_2"
+        }
+      ],
+      "escalation": "s_d_sky_cache",
+      "tags": [
+        "magnus",
+        "aero",
+        "thibault"
+      ],
+      "interlude": 3
+    },
+    {
+      "id": "c36_barbaro_strait",
+      "title": "Барбаро интересуется проливом",
+      "deck": "court",
+      "face": "«Управители ворот, не замечали ли чего в Канале?»",
+      "left": {
+        "label": "Рассказать, что знаете",
+        "effects": [
+          {
+            "type": "track",
+            "track": "court",
+            "delta": 1
+          }
+        ],
+        "gmNote": "Луциан под ударом."
+      },
+      "right": {
+        "label": "«Ничего не замечали»",
+        "effects": [
+          {
+            "type": "setFlag",
+            "flag": "ложь_Барбаро"
+          }
+        ],
+        "gmNote": "Он проверит."
+      },
+      "speaker": "Барбаро",
+      "tags": [
+        "wight",
+        "lucian"
+      ],
+      "interlude": 3
+    },
+    {
+      "id": "c37_geltz_arrived",
+      "title": "Гельц приехал",
+      "deck": "night",
+      "face": "Гельц приехал и просит подвал под капеллу.",
+      "left": {
+        "label": "Дать",
+        "effects": [
+          {
+            "type": "track",
+            "track": "night",
+            "delta": 1
+          },
+          {
+            "type": "track",
+            "track": "court",
+            "delta": -1
+          },
+          {
+            "type": "setFlag",
+            "flag": "Гельц_в_Руане"
+          },
+          {
+            "type": "population",
+            "delta": 1
+          }
+        ],
+        "gmNote": "Кровь-учитель для Магнуса и Евы."
+      },
+      "right": {
+        "label": "Дать, но под надзором двора",
+        "effects": [
+          {
+            "type": "track",
+            "track": "court",
+            "delta": 1
+          },
+          {
+            "type": "setFlag",
+            "flag": "Гельц_в_Руане"
+          },
+          {
+            "type": "setFlag",
+            "flag": "Гельц_обижен"
+          },
+          {
+            "type": "population",
+            "delta": 1
+          }
+        ],
+        "gmNote": "Гельц обижен."
+      },
+      "requires": [
+        {
+          "flag": "Гельц_едет"
+        }
+      ],
+      "speaker": "Гельц",
+      "tags": [
+        "geltz",
+        "magnus",
+        "eva"
+      ],
+      "interlude": 3
+    },
+    {
+      "id": "c38_bindings",
+      "title": "Гельц узнаёт переплёты",
+      "deck": "night",
+      "face": "Гельц узнаёт переплёты книг.",
+      "left": {
+        "label": "Вернуть книги Гельцу",
+        "effects": [
+          {
+            "type": "track",
+            "track": "court",
+            "delta": -2
+          },
+          {
+            "type": "setFlag",
+            "flag": "Гельц_союзник"
+          }
+        ],
+        "gmNote": "Гельц — союзник. Обокрали Барбаро."
+      },
+      "right": {
+        "label": "Оставить себе",
+        "effects": [
+          {
+            "type": "setFlag",
+            "flag": "Пирамида_помнит"
+          },
+          {
+            "type": "setFlag",
+            "flag": "Гельц_враг"
+          }
+        ],
+        "gmNote": "Гельц — враг, но вежливый."
+      },
+      "requires": [
+        {
+          "flag": "книги_Вены"
+        },
+        {
+          "flag": "Гельц_в_Руане"
+        }
+      ],
+      "escalation": true,
+      "tags": [
+        "geltz",
+        "magnus"
+      ],
+      "gmNote": "В исходнике колода не указана.",
+      "interlude": 3
+    },
+    {
+      "id": "c39_safe",
+      "title": "Гуль говорит с сейфом",
+      "deck": "mirror",
+      "face": "На совещании гуль говорит вслух с вещами.",
+      "left": {
+        "label": "Прикрыть («переутомление»)",
+        "effects": [
+          {
+            "type": "track",
+            "track": "masquerade",
+            "delta": -1
+          }
+        ]
+      },
+      "right": {
+        "label": "Использовать",
+        "effects": [
+          {
+            "type": "track",
+            "track": "city",
+            "delta": 1
+          },
+          {
+            "type": "setFlag",
+            "flag": "компромат"
+          }
+        ],
+        "gmNote": "Сейф сказал, кто его открывал: компромат."
+      },
+      "requires": [
+        {
+          "flag": "гуль_безумие"
+        }
+      ],
+      "tags": [
+        "magnus"
+      ],
+      "interlude": 3
+    },
+    {
+      "id": "c40_ghoul_memory",
+      "title": "Гуль помнит чужого друга",
+      "deck": "mirror",
+      "face": "Гуль рассказывает о «белокуром парне в кабине, который сгорел». Магнус его не помнит.",
+      "left": {
+        "label": "Выслушать",
+        "effects": [],
+        "gmNote": "Человечность / Голконда.",
+        "opensScene": "s_ghoul_memory"
+      },
+      "right": {
+        "label": "Запретить говорить",
+        "effects": [
+          {
+            "type": "setFlag",
+            "flag": "гуль_безумие"
+          }
+        ],
+        "gmNote": "Гуль замыкается, безумие растёт."
+      },
+      "escalation": "s_ghoul_memory",
+      "tags": [
+        "magnus"
+      ],
+      "interlude": 3
+    },
+    {
+      "id": "c41_ghost_deal",
+      "title": "Призраки хотят сделки",
+      "deck": "mirror",
+      "face": "Призраки манора хотят сделки.",
+      "left": {
+        "label": "Союз против некромантов",
+        "effects": [
+          {
+            "type": "setFlag",
+            "flag": "мёртвые_союзники"
+          }
+        ],
+        "gmNote": "Но они знают, кто в доме."
+      },
+      "right": {
+        "label": "Изгнать",
+        "effects": [
+          {
+            "type": "setFlag",
+            "flag": "изгнание"
+          }
+        ],
+        "gmNote": "Дом чист. Женевьева почувствует."
+      },
+      "requires": [
+        {
+          "anyOf": [
+            {
+              "flag": "знание_Покрова"
+            },
+            {
+              "flag": "сцена_мёртвые_хозяева"
+            }
+          ]
+        }
+      ],
+      "tags": [
+        "boris"
+      ],
+      "interlude": 3
+    },
+    {
+      "id": "c42_dead_women",
+      "title": "Мёртвые женщины на кольце",
+      "deck": "gates",
+      "face": "Брошенный груз: контейнер с руной ᚷ.",
+      "left": {
+        "label": "Вскрыть и сжечь",
+        "effects": [
+          {
+            "type": "track",
+            "track": "masquerade",
+            "delta": 1
+          }
+        ],
+        "gmNote": "След обрывается."
+      },
+      "right": {
+        "label": "Вскрыть и изучить",
+        "effects": [
+          {
+            "type": "setFlag",
+            "flag": "Ödinsfrakt_Руан"
+          }
+        ],
+        "gmNote": "В телах — следы некромантии: цель крестового похода.",
+        "opensScene": "s_k_cargo"
+      },
+      "escalation": "s_k_cargo",
+      "tags": [
+        "odinsfrakt",
+        "boris"
+      ],
+      "gmNote": "В исходнике: ВОРОТА/Ödinsfrakt.",
+      "interlude": 3
+    },
+    {
+      "id": "c43_cure_meeting",
+      "title": "Кюре просит встречи",
+      "deck": "deruan",
+      "face": "Молодой кюре хочет говорить «с хозяевами поместья» лично.",
+      "left": {
+        "label": "Принять",
+        "effects": [],
+        "gmNote": "Кюре — ниточка к Женевьеве.",
+        "opensScene": "s_i_cure"
+      },
+      "right": {
+        "label": "Отказать",
+        "effects": [
+          {
+            "type": "setFlag",
+            "flag": "кюре_уверен"
+          }
+        ],
+        "gmNote": "Отказ — тоже ответ."
+      },
+      "tags": [
+        "cure",
+        "genevieve"
+      ],
+      "interlude": 3
+    },
+    {
+      "id": "c44_newspaper",
+      "title": "Старые семьи покупают газету",
+      "deck": "routine",
+      "face": "Местная газета начинает серию «Кто купил поместье де Руан?»",
+      "left": {
+        "label": "Перекупить/задавить",
+        "effects": [
+          {
+            "type": "track",
+            "track": "city",
+            "delta": -1
+          },
+          {
+            "type": "track",
+            "track": "masquerade",
+            "delta": 1
+          }
+        ]
+      },
+      "right": {
+        "label": "Дать интервью (Ева, Величие)",
+        "effects": [
+          {
+            "type": "track",
+            "track": "city",
+            "delta": 1
+          },
+          {
+            "type": "track",
+            "track": "masquerade",
+            "delta": -1
+          },
+          {
+            "type": "setFlag",
+            "flag": "лицо_в_прессе"
+          }
+        ],
+        "gmNote": "Лицо в прессе."
+      },
+      "tags": [
+        "eva",
+        "genevieve"
+      ],
+      "interlude": 3
+    },
+    {
+      "id": "c45_cruise",
+      "title": "Круизный сезон",
+      "deck": "gates",
+      "face": "В порт заходит первый крупный лайнер.",
+      "left": {
+        "label": "Открытая охота на борту",
+        "effects": [
+          {
+            "type": "track",
+            "track": "capacity",
+            "delta": 1
+          },
+          {
+            "type": "track",
+            "track": "masquerade",
+            "delta": -1
+          }
+        ],
+        "gmNote": "📦+1 только на сезон — снимите вручную в конце интерлюдии."
+      },
+      "right": {
+        "label": "Только избранные",
+        "effects": [
+          {
+            "type": "track",
+            "track": "masquerade",
+            "delta": 1
+          }
+        ],
+        "gmNote": "Толку мало."
+      },
+      "interlude": 3
+    },
+    {
+      "id": "c46_more_prophets",
+      "title": "Ещё пророки",
+      "deck": "night",
+      "face": "Пророк зовёт «братьев» — их трое.",
+      "left": {
+        "label": "Собрание",
+        "effects": [],
+        "opensScene": "s_e_prophets"
+      },
+      "right": {
+        "label": "Выставить всех",
+        "effects": [
+          {
+            "type": "track",
+            "track": "court",
+            "delta": 1
+          },
+          {
+            "type": "note",
+            "text": "Ева: Убеждения под вопросом"
+          }
+        ]
+      },
+      "requires": [
+        {
+          "flag": "пророк_у_нас"
+        }
+      ],
+      "tags": [
+        "eva",
+        "prophets"
+      ],
+      "interlude": 3
+    },
+    {
+      "id": "c47_fanatics",
+      "title": "Фанатики у ворот",
+      "deck": "deruan",
+      "face": "Ночью в манор летит бутылка с зажигательной смесью.",
+      "left": {
+        "label": "Преследовать",
+        "effects": [],
+        "gmNote": "🩸 под угрозой.",
+        "opensScene": "s_chase"
+      },
+      "right": {
+        "label": "Не отвечать, укрепиться",
+        "effects": [
+          {
+            "type": "setFlag",
+            "flag": "Тибо_бьёт_снова"
+          }
+        ]
+      },
+      "requires": [
+        {
+          "flag": "Тибо_осмелел"
+        }
+      ],
+      "tags": [
+        "thibault"
+      ],
+      "interlude": 3
+    },
+    {
+      "id": "c48_archive_stirs",
+      "title": "Архив шевелится",
+      "deck": "deruan",
+      "face": "Нотариус запрашивает в мэрии старые метрики семьи де Руан.",
+      "left": {
+        "label": "Перехватить запрос",
+        "effects": [
+          {
+            "type": "timer",
+            "id": "genevieve_archive",
+            "delta": -1
+          },
+          {
+            "type": "track",
+            "track": "masquerade",
+            "delta": -1
+          }
+        ],
+        "gmNote": "Женевьева −1 стадия."
+      },
+      "right": {
+        "label": "Не заметить",
+        "effects": [
+          {
+            "type": "timer",
+            "id": "genevieve_archive",
+            "delta": 1
+          }
+        ],
+        "gmNote": "Женевьева +1 стадия."
+      },
+      "tags": [
+        "genevieve"
+      ],
+      "interlude": 3
+    },
+    {
+      "id": "c49_birds_return",
+      "title": "Птицы вернулись",
+      "deck": "omen",
+      "face": "Стаи летят обратно, на восток.",
+      "interlude": 3
+    }
+  ],
+  "scenes": [
+    {
+      "id": "s_a_dead_masters",
+      "title": "Мёртвые хозяева",
+      "playerText": "Дух хозяина дома требует ответа: кто живёт в его стенах.",
+      "gmNotes": "Сцена А. Борис и призраки манора.",
+      "outcomes": [
+        {
+          "label": "Договор: призраки остаются, котерия их не трогает",
+          "effects": [
+            {
+              "type": "setFlag",
+              "flag": "мёртвые_союзники"
+            },
+            {
+              "type": "setFlag",
+              "flag": "сцена_мёртвые_хозяева"
+            }
+          ]
+        },
+        {
+          "label": "Изгнание: дом чист",
+          "effects": [
+            {
+              "type": "setFlag",
+              "flag": "призраки_изгнаны"
+            },
+            {
+              "type": "setFlag",
+              "flag": "сцена_мёртвые_хозяева"
+            }
+          ],
+          "gmNote": "Кто-то в семье чувствует пустоту."
+        }
+      ]
+    },
+    {
+      "id": "s_b_vagrant",
+      "title": "Бродяга",
+      "playerText": "Человек Тибо перед вами.",
+      "gmNotes": "Сцена Б. Допрос человека Тибо.",
+      "outcomes": [
+        {
+          "label": "Сломать и выпустить обратно двойным агентом",
+          "effects": [
+            {
+              "type": "setFlag",
+              "flag": "бродяга_двойной_агент"
+            }
+          ],
+          "gmNote": "Нить к Тибо."
+        },
+        {
+          "label": "Убить",
+          "effects": [
+            {
+              "type": "track",
+              "track": "masquerade",
+              "delta": -1
+            },
+            {
+              "type": "setFlag",
+              "flag": "Тибо_действует"
+            }
+          ],
+          "gmNote": "Тибо переходит к действиям."
+        }
+      ]
+    },
+    {
+      "id": "s_v_bonfire",
+      "title": "Костёр",
+      "playerText": "Сон на Старом рынке: Троица и огонь, пророчица на костре.",
+      "gmNotes": "Сцена В. Сон Евы.",
+      "outcomes": [
+        {
+          "label": "Спросить о хозяине Троицы",
+          "effects": [],
+          "gmNote": "Одна из трёх версий — не подтверждать!"
+        },
+        {
+          "label": "Спросить о силе",
+          "effects": [],
+          "gmNote": "Михаил / Антоний / Дракон дают путь к Величию / Доминированию."
+        }
+      ]
+    },
+    {
+      "id": "s_g_visit",
+      "title": "Визит",
+      "playerText": "Сэр Лавуа в маноре.",
+      "gmNotes": "Сцена Г. Лавуа в доме, где погибло его дитя.",
+      "outcomes": [
+        {
+          "label": "Показать ему место гибели",
+          "effects": [
+            {
+              "type": "setFlag",
+              "flag": "Лавуа_должен"
+            }
+          ],
+          "gmNote": "Лавуа нейтрализован на время."
+        },
+        {
+          "label": "Держать вежливую дистанцию",
+          "effects": [
+            {
+              "type": "setFlag",
+              "flag": "Лавуа_с_материалом"
+            }
+          ],
+          "gmNote": "Лавуа уходит с материалом для двора."
+        }
+      ]
+    },
+    {
+      "id": "s_d_sky_cache",
+      "title": "Схрон в небе",
+      "playerText": "Вскрытие борта в аэропорту.",
+      "gmNotes": "Сцена Д.",
+      "outcomes": [
+        {
+          "label": "Сорвать маячок вовремя",
+          "effects": [],
+          "gmNote": "Трофеи без последствий."
+        },
+        {
+          "label": "Маячок сработал",
+          "effects": [
+            {
+              "type": "setFlag",
+              "flag": "Тибо_аэропорт"
+            }
+          ],
+          "gmNote": "Тибо знает хозяина полосы."
+        }
+      ]
+    },
+    {
+      "id": "s_e_prophets",
+      "title": "Разговор пророков",
+      "playerText": "Несколько «посещённых» за одним столом.",
+      "gmNotes": "Сцена Е.",
+      "outcomes": [
+        {
+          "label": "Их «праотцы» не совпадают",
+          "effects": [
+            {
+              "type": "setFlag",
+              "flag": "праотцы_разные"
+            }
+          ],
+          "gmNote": "Не совпадают с многоликим — Ева одна."
+        },
+        {
+          "label": "Совпадают слишком точно",
+          "effects": [
+            {
+              "type": "setFlag",
+              "flag": "праотцы_совпадают"
+            }
+          ],
+          "gmNote": "Ева не одна (для игрока одинаково тревожно)."
+        }
+      ]
+    },
+    {
+      "id": "s_zh_fecamp",
+      "title": "Вылазка в Фекан",
+      "playerText": "Бар, где «фрахтуют туман».",
+      "gmNotes": "Сцена Ж. Открывается вручную после карты 34 «Шкипер из Фекана» (◀ Нанять шкипера).",
+      "outcomes": [
+        {
+          "label": "Договориться со шкипером",
+          "effects": [
+            {
+              "type": "setFlag",
+              "flag": "путь_к_Соленту"
+            }
+          ],
+          "gmNote": "Открыт путь к Соленту."
+        },
+        {
+          "label": "Столкнуться с людьми заказчика",
+          "effects": [
+            {
+              "type": "setFlag",
+              "flag": "люди_заказчика"
+            }
+          ],
+          "gmNote": "Выход на малокровных Луциана (имя не звучит!)."
+        }
+      ]
+    },
+    {
+      "id": "s_z_wight",
+      "title": "Остров Уайт",
+      "playerText": "Остров Уайт.",
+      "gmNotes": "Сцена З. Финальный узел линии Уайта (если дошли). Открывается вручную.",
+      "outcomes": [
+        {
+          "label": "Контакт с Луцианом",
+          "effects": [
+            {
+              "type": "setFlag",
+              "flag": "союз_Луциан"
+            }
+          ],
+          "gmNote": "Старый долг, союз, двор не знает."
+        },
+        {
+          "label": "Сдать остров Барбаро",
+          "effects": [
+            {
+              "type": "track",
+              "track": "court",
+              "delta": 3
+            },
+            {
+              "type": "setFlag",
+              "flag": "Луциан_потерян"
+            }
+          ],
+          "gmNote": "Луциан потерян, малокровные запомнят."
+        }
+      ]
+    },
+    {
+      "id": "s_i_cure",
+      "title": "Кюре",
+      "playerText": "Разговор с молодым священником.",
+      "gmNotes": "Сцена И.",
+      "outcomes": [
+        {
+          "label": "Обратить в свою сторону (Доминирование/Величие)",
+          "effects": [
+            {
+              "type": "setFlag",
+              "flag": "кюре_наш"
+            }
+          ],
+          "gmNote": "Канал в сеть Женевьевы."
+        },
+        {
+          "label": "Отпустить",
+          "effects": [
+            {
+              "type": "setFlag",
+              "flag": "кюре_отпущен"
+            }
+          ],
+          "gmNote": "Он передаст Женевьеве всё, что увидел."
+        }
+      ]
+    },
+    {
+      "id": "s_k_cargo",
+      "title": "Груз",
+      "playerText": "Контейнер Ödinsfrakt.",
+      "gmNotes": "Сцена К.",
+      "outcomes": [
+        {
+          "label": "Некромантия на телах: цель похода найдена",
+          "effects": [
+            {
+              "type": "setFlag",
+              "flag": "крестовый_поход"
+            }
+          ],
+          "gmNote": "Цель похода Бориса найдена — старт крестового похода."
+        },
+        {
+          "label": "Скрыть от Бориса / сжечь",
+          "effects": [
+            {
+              "type": "setFlag",
+              "flag": "груз_в_резерве"
+            }
+          ],
+          "gmNote": "Нить в резерв."
+        }
+      ]
+    },
+    {
+      "id": "s_l_genevieve",
+      "title": "Женевьева",
+      "playerText": "Встреча с Женевьевой.",
+      "gmNotes": "Сцена Л. Финальная встреча — когда таймер «Архив Женевьевы» дошёл. Открывается вручную.",
+      "outcomes": [
+        {
+          "label": "Переговоры",
+          "effects": [
+            {
+              "type": "setFlag",
+              "flag": "перемирие_с_Женевьевой"
+            }
+          ],
+          "gmNote": "Перемирие ценой правды об Алисии."
+        },
+        {
+          "label": "Война",
+          "effects": [
+            {
+              "type": "setFlag",
+              "flag": "война_с_Женевьевой"
+            }
+          ],
+          "gmNote": "Семья выходит из тени, 🩸 под огнём."
+        }
+      ]
+    },
+    {
+      "id": "s_marauders",
+      "title": "Мародёры",
+      "playerText": "Двое шабашитов на плато. Их нужно выгнать.",
+      "gmNotes": "Сцены нет в исходнике (карта 23). Исход — через «Свой исход».",
+      "outcomes": []
+    },
+    {
+      "id": "s_ghoul_memory",
+      "title": "Память гуля",
+      "playerText": "Гуль рассказывает о белокуром парне в кабине.",
+      "gmNotes": "Сцены нет в исходнике (карта 40). Человечность / Голконда. Исход — через «Свой исход».",
+      "outcomes": []
+    },
+    {
+      "id": "s_chase",
+      "title": "Погоня",
+      "playerText": "Поджигатели уходят в ночь.",
+      "gmNotes": "Сцены нет в исходнике (карта 47). 🩸 под угрозой. Исход — через «Свой исход».",
+      "outcomes": []
+    },
+    {
+      "id": "x_masquerade_low",
+      "title": "Газетная полоса",
+      "playerText": "Ночные исчезновения — в прессе.",
+      "gmNotes": "Тибо вербует горожан.",
+      "outcomes": [],
+      "crisisOf": {
+        "track": "masquerade",
+        "edge": "low"
+      }
+    },
+    {
+      "id": "x_masquerade_high",
+      "title": "Тишина",
+      "playerText": "Вторая инквизиция присылает наблюдателя: почему в Руане стерильно?",
+      "outcomes": [],
+      "crisisOf": {
+        "track": "masquerade",
+        "edge": "high"
+      }
+    },
+    {
+      "id": "x_court_low",
+      "title": "Ревизор",
+      "playerText": "Париж присылает Лавуа с полномочиями.",
+      "outcomes": [],
+      "crisisOf": {
+        "track": "court",
+        "edge": "low"
+      }
+    },
+    {
+      "id": "x_court_high",
+      "title": "Слишком ценный",
+      "playerText": "При дворе просят передать Руан «опытным рукам».",
+      "outcomes": [],
+      "crisisOf": {
+        "track": "court",
+        "edge": "high"
+      }
+    },
+    {
+      "id": "x_city_low",
+      "title": "Бунт плато",
+      "playerText": "Погромы. Полиция зовёт подкрепление из Парижа.",
+      "outcomes": [],
+      "crisisOf": {
+        "track": "city",
+        "edge": "low"
+      }
+    },
+    {
+      "id": "x_city_high",
+      "title": "Руанское чудо",
+      "playerText": "Журналисты, аудиторы.",
+      "gmNotes": "Женевьева читает новости.",
+      "outcomes": [],
+      "crisisOf": {
+        "track": "city",
+        "edge": "high"
+      }
+    },
+    {
+      "id": "x_night_low",
+      "title": "Ничейная земля",
+      "playerText": "Мародёры Шабаша считают домен свободным.",
+      "outcomes": [],
+      "crisisOf": {
+        "track": "night",
+        "edge": "low"
+      }
+    },
+    {
+      "id": "x_night_high",
+      "title": "Магнит",
+      "playerText": "Двор спрашивает, что за сила собирается в Руане.",
+      "gmNotes": "В Руане чужой агент.",
+      "outcomes": [],
+      "crisisOf": {
+        "track": "night",
+        "edge": "high"
+      }
+    }
+  ]
+}
