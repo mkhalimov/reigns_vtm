@@ -10,6 +10,8 @@ import { CHANNEL, openChannel, type FromPlayers, type TimerView, type ToPlayers 
 import { PlayerScreen } from './ui/PlayerScreen';
 import { TablePanel } from './ui/gm/TablePanel';
 import { DeckPanel, JournalPanel, SettingsPanel } from './ui/gm/OtherPanels';
+import { broadcastState, broadcastTimer, connectedIds, getHost, resetVotes, restoreRoom, setHostHandlers } from './net/host';
+import { decide, type Choice } from './engine/votes';
 
 export default function App() {
   if (location.hash.startsWith('#/players')) return <RemotePlayers />;
@@ -32,6 +34,36 @@ function playerAction(msg: FromPlayers) {
   else if (msg.type === 'ack') dispatch(acknowledge);
 }
 
+/** Карта, на которой голоса разделились (для надписи у игроков). */
+let tieKey: string | null = null;
+
+function applyChoice(choice: Choice, cardKey: string) {
+  if (choice === 'left' || choice === 'right') playerAction({ type: 'choose', side: choice, cardKey });
+  else if (choice === 'escalate') playerAction({ type: 'escalate', cardKey });
+  else playerAction({ type: 'ack', cardKey });
+}
+
+/** Решение по голосам с устройств игроков; final — время вышло. */
+function evaluateVotes(final: boolean): 'choice' | 'tie' | 'wait' | 'none' {
+  const { game, deck } = getState();
+  const pub = publicView(game, deck);
+  const h = getHost();
+  if (pub.mode !== 'card' || !pub.cardKey || game.awaitingGm || h.voteKey !== pub.cardKey) return 'none';
+  const d = decide(game.settings.decisionMode, h.votes, connectedIds(), h.leaderId, final);
+  if (d.kind === 'choice') applyChoice(d.choice, pub.cardKey);
+  else if (d.kind === 'tie') {
+    tieKey = pub.cardKey;
+    dispatch((g) => patchState(g, { awaitingGm: true }));
+  }
+  return d.kind;
+}
+
+function onTimerExpired() {
+  const h = getHost();
+  if (h.status === 'open' && connectedIds().length && evaluateVotes(true) !== 'wait') return;
+  dispatch(handleTimeout);
+}
+
 function Main() {
   const loaded = useApp((s) => s.loaded);
   const game = useApp((s) => s.game);
@@ -42,7 +74,7 @@ function Main() {
   const [tab, setTab] = useState<'table' | 'journal' | 'deck' | 'settings'>('table');
 
   useEffect(() => {
-    void init();
+    void init().then(() => restoreRoom());
   }, []);
 
   const pub = useMemo(() => publicView(game, deck), [game, deck]);
@@ -59,7 +91,7 @@ function Main() {
       const { game: g, deck: d } = getState();
       const p = publicView(g, d);
       if (p.mode !== 'card' || p.hidden || g.awaitingGm || p.cardKey !== getTimer().key) return;
-      if (tick()) dispatch(handleTimeout);
+      if (tick()) onTimerExpired();
     }, 1000);
     return () => clearInterval(id);
   }, [loaded]);
@@ -82,6 +114,30 @@ function Main() {
   useEffect(() => {
     if (latest.current) chan.current?.postMessage(latest.current);
   }, [pub, journal, timer.remaining, timer.total, timer.paused, timer.disabled]);
+
+  // комната для телефонов игроков
+  const pubRef = useRef(pub);
+  pubRef.current = pub;
+  const journalRef = useRef(journal);
+  journalRef.current = journal;
+  const pushRoom = () => {
+    const p = pubRef.current;
+    const g = getState().game;
+    broadcastState(p, journalRef.current, g.settings.decisionMode, g.awaitingGm && tieKey === p.cardKey);
+  };
+  useEffect(() => {
+    setHostHandlers({ onVote: () => evaluateVotes(false), onChange: pushRoom });
+  }, []);
+  useEffect(() => {
+    resetVotes(pub.cardKey ?? null);
+  }, [pub.cardKey]);
+  useEffect(pushRoom, [pub, journal, game.settings.decisionMode, game.awaitingGm]);
+  useEffect(() => {
+    evaluateVotes(false);
+  }, [game.settings.decisionMode]);
+  useEffect(() => {
+    broadcastTimer(timerView);
+  }, [timer.remaining, timer.total, timer.paused, timer.disabled]);
 
   // горячие клавиши
   useEffect(() => {

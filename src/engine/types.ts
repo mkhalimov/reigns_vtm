@@ -1,4 +1,5 @@
 // Модель данных колоды и состояния партии (ТЗ, раздел 4).
+import type { DecisionMode } from './votes';
 
 export const DECKS = ['routine', 'deruan', 'night', 'gates', 'court', 'mirror', 'omen'] as const;
 export type DeckId = (typeof DECKS)[number];
@@ -112,6 +113,8 @@ export interface Settings {
   autobuild: { routine: number; lines: number; mirror: number; omen: number };
   /** Сезон начала партии: 0 — зима, 1 — весна, 2 — лето, 3 — осень. */
   startSeason: number;
+  /** Как решают игроки со своих устройств. */
+  decisionMode: DecisionMode;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -124,6 +127,7 @@ export const DEFAULT_SETTINGS: Settings = {
   crisisRollbackHigh: 8,
   autobuild: { routine: 3, lines: 4, mirror: 1, omen: 1 },
   startSeason: 1,
+  decisionMode: 'vote',
 };
 
 export interface PendingCard {

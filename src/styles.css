@@ -950,3 +950,111 @@ pre.json {
   flex: 1;
   min-width: 0;
 }
+
+/* ---------- комната и голосование ---------- */
+.option.voted,
+.escalate.voted {
+  border-color: var(--accent-2);
+  box-shadow: 0 0 0 2px var(--accent-2) inset;
+}
+.voters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+  font-family: var(--sans);
+}
+.option.right .voters {
+  justify-content: flex-end;
+}
+.voter {
+  font-size: 0.65em;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+}
+.vote-status {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.7em;
+}
+.net-banner {
+  background: #3a2410;
+  color: var(--warn);
+  text-align: center;
+  padding: 6px 12px;
+  font-size: 0.8em;
+}
+.join-form {
+  width: min(420px, 100%);
+  display: grid;
+  gap: 12px;
+  font-size: 18px;
+}
+.join-form h1 {
+  font-family: var(--serif);
+  text-align: center;
+  margin: 0 0 8px;
+}
+.join-form label {
+  display: grid;
+  gap: 4px;
+}
+.join-form input {
+  font-size: 20px;
+  padding: 10px 12px;
+}
+.join-form input.code {
+  text-transform: uppercase;
+  letter-spacing: 0.25em;
+  text-align: center;
+  font-family: ui-monospace, monospace;
+}
+.join-form button {
+  padding: 12px;
+  font-size: 18px;
+}
+.room-code {
+  font-family: ui-monospace, monospace;
+  font-size: 2em;
+  letter-spacing: 0.2em;
+  color: var(--accent-2);
+  text-align: center;
+}
+.room-qr {
+  display: block;
+  margin: 6px auto;
+  width: 180px;
+  height: 180px;
+  image-rendering: pixelated;
+  border-radius: 6px;
+}
+.room-players {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0;
+}
+.room-players li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #555;
+}
+.dot.on {
+  background: var(--ok);
+}
+.guest-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 12px;
+  font-size: 0.7em;
+  color: var(--muted);
+}

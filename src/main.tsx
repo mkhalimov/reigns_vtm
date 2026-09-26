@@ -1,11 +1,18 @@
-import { StrictMode } from 'react';
+import { lazy, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
-import App from './App';
 import './styles.css';
+
+// Устройства игроков грузят только свой маленький бандл: колоды, заметок и кода пульта в нём нет.
+// Два отдельных import(): иначе сборщик подгружает зависимости обеих веток сразу.
+const JoinRoot = lazy(() => import('./ui/JoinApp').then((m) => ({ default: m.JoinApp })));
+const GmRoot = lazy(() => import('./App'));
+const Root = location.hash.startsWith('#/join') ? JoinRoot : GmRoot;
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <Suspense fallback={<div className="loading">Загрузка…</div>}>
+      <Root />
+    </Suspense>
   </StrictMode>,
 );
 

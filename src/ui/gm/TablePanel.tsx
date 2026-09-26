@@ -42,6 +42,7 @@ import { disableTimer, pauseTimer, resetTimer, useTimer } from '../../timer';
 import { Md } from '../Md';
 import { SummaryTracks } from '../PlayerScreen';
 import { DeckTag, EffectList, OptionBlock, Requires } from './common';
+import { RoomPanel } from './RoomPanel';
 
 export function TablePanel() {
   const deck = useApp((s) => s.deck);
@@ -59,6 +60,7 @@ export function TablePanel() {
         <Pool game={game} deck={deck} />
       </main>
       <aside className="table-side">
+        <RoomPanel />
         <TrackEditor game={game} />
         {game.sceneQueue.length > 0 && <SceneQueue game={game} deck={deck} />}
         <Flags game={game} />
@@ -86,7 +88,7 @@ function CurrentCard({ card, game, deck }: { card: Card; game: GameState; deck: 
         <DeckTag card={card} />
         <code className="muted">{card.id}</code>
       </div>
-      {game.awaitingGm && <div className="alert">Время вышло. Выберите вариант за игроков или сбросьте таймер.</div>}
+      {game.awaitingGm && <div className="alert">Игроки ждут решения Рассказчика (время вышло или голоса разделились). Выберите вариант за игроков или сбросьте таймер.</div>}
       <div className="current-grid">
         <div className="current-face">
           <h3>{card.title}</h3>

@@ -5,6 +5,8 @@ import type { PublicJournalEntry } from '../engine/journal';
 import type { Side } from '../engine/types';
 import { DECK_ICONS, DECK_LABELS, TRACK_LABELS } from '../engine/rules';
 import type { TimerView } from '../channel';
+import type { RoomView } from '../net/protocol';
+import type { Choice } from '../engine/votes';
 import { Md } from './Md';
 import { Tracks } from './Tracks';
 
@@ -16,9 +18,12 @@ interface Props {
   onEscalate: () => void;
   onAck: () => void;
   corner?: ReactNode;
+  /** Режим комнаты: игрок на своём устройстве голосует. */
+  room?: RoomView | null;
+  banner?: ReactNode;
 }
 
-export function PlayerScreen({ pub, timer, journal, onChoose, onEscalate, onAck, corner }: Props) {
+export function PlayerScreen({ pub, timer, journal, onChoose, onEscalate, onAck, corner, room, banner }: Props) {
   const [showJournal, setShowJournal] = useState(false);
 
   if (pub.hidden)
@@ -35,6 +40,7 @@ export function PlayerScreen({ pub, timer, journal, onChoose, onEscalate, onAck,
   return (
     <div className="player-screen">
       {corner}
+      {banner}
       <Tracks tracks={pub.tracks} population={pub.population} reveal={pub.reveal} />
       <div className="player-meta">
         <span>Интерлюдия {pub.interlude}</span>
@@ -52,7 +58,7 @@ export function PlayerScreen({ pub, timer, journal, onChoose, onEscalate, onAck,
       <div className="player-stage">
         {pub.mode === 'draft' && <div className="waiting">Рассказчик готовит следующую интерлюдию…</div>}
         {pub.mode === 'card' && pub.card && (
-          <CardView pub={pub} timer={timer} onChoose={onChoose} onEscalate={onEscalate} onAck={onAck} key={pub.cardKey} />
+          <CardView pub={pub} timer={timer} onChoose={onChoose} onEscalate={onEscalate} onAck={onAck} room={room} key={pub.cardKey} />
         )}
         {pub.mode === 'scene' && pub.scene && (
           <div className={`scene-view ${pub.scene.crisis ? 'crisis' : ''}`}>
@@ -129,12 +135,25 @@ function CardView({
   onChoose,
   onEscalate,
   onAck,
-}: Pick<Props, 'pub' | 'timer' | 'onChoose' | 'onEscalate' | 'onAck'>) {
+  room,
+}: Pick<Props, 'pub' | 'timer' | 'onChoose' | 'onEscalate' | 'onAck' | 'room'>) {
   const card = pub.card!;
   const [dx, setDx] = useState(0);
   const start = useRef<{ x: number; id: number } | null>(null);
   const hasOptions = Boolean(card.left || card.right);
   const locked = pub.awaitingGm;
+  const voters = (c: Choice) => room?.votes.filter((v) => v.choice === c).map((v) => v.name) ?? [];
+  const mine = (c: Choice) => (room?.myVote === c ? 'voted' : '');
+  const Voters = ({ c }: { c: Choice }) =>
+    voters(c).length ? (
+      <span className="voters">
+        {voters(c).map((n, i) => (
+          <span key={i} className="voter">
+            {n}
+          </span>
+        ))}
+      </span>
+    ) : null;
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (!hasOptions || locked || e.pointerType === 'mouse') return;
@@ -184,29 +203,44 @@ function CardView({
         </div>
       )}
 
-      {locked && <div className="awaiting">Время вышло — решает Рассказчик.</div>}
+      {locked && (
+        <div className="awaiting">{room?.tie ? 'Голоса разделились — решает Рассказчик.' : 'Время вышло — решает Рассказчик.'}</div>
+      )}
 
       {hasOptions ? (
         <div className="options">
-          <button className="option left" disabled={locked || !card.left} onClick={() => onChoose('left')}>
+          <button className={`option left ${mine('left')}`} disabled={locked || !card.left} onClick={() => onChoose('left')}>
             <span className="arrow">◀</span> {card.left}
+            <Voters c="left" />
           </button>
-          <button className="option right" disabled={locked || !card.right} onClick={() => onChoose('right')}>
+          <button className={`option right ${mine('right')}`} disabled={locked || !card.right} onClick={() => onChoose('right')}>
             {card.right} <span className="arrow">▶</span>
+            <Voters c="right" />
           </button>
         </div>
       ) : (
         <div className="options">
-          <button className="option single" onClick={onAck}>
+          <button className={`option single ${mine('ack')}`} onClick={onAck}>
             {card.deck === 'omen' ? 'Принять знамение' : 'Принять к сведению'}
+            <Voters c="ack" />
           </button>
         </div>
       )}
       {card.canEscalate && hasOptions && (
-        <button className="escalate" disabled={locked} onClick={onEscalate}>
+        <button className={`escalate ${mine('escalate')}`} disabled={locked} onClick={onEscalate}>
           ⚔ Разбираемся лично
+          <Voters c="escalate" />
         </button>
       )}
+      {room && !locked && <div className="vote-status">{voteStatus(room)}</div>}
     </div>
   );
+}
+
+function voteStatus(room: RoomView): string {
+  const n = room.votes.length;
+  if (room.mode === 'leader' && room.leaderName)
+    return room.isLeader ? 'Вы — ведущий: решение за вами. Голоса остальных — совет.' : `Решает ведущий: ${room.leaderName}. Ваш голос — совет.`;
+  if (room.mode === 'first') return 'Решает первый нажавший.';
+  return `Проголосовали ${n} из ${room.players}. Решение — когда проголосуют все. Нажмите свой вариант ещё раз, чтобы снять голос.`;
 }
