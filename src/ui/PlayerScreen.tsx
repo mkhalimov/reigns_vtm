@@ -140,8 +140,12 @@ function CardView({
   const card = pub.card!;
   const [dx, setDx] = useState(0);
   const start = useRef<{ x: number; id: number } | null>(null);
-  const hasOptions = Boolean(card.left || card.right);
+  const hasOptions = card.options ?? Boolean(card.left || card.right);
+  // секретная карта не адресату: вариантов не видно
+  const hidden = hasOptions && !card.left && !card.right;
   const locked = pub.awaitingGm;
+  // личная/спорная карта: голосует только тот, кому можно
+  const blocked = locked || (room ? !room.canVote : false);
   const voters = (c: Choice) => room?.votes.filter((v) => v.choice === c).map((v) => v.name) ?? [];
   const mine = (c: Choice) => (room?.myVote === c ? 'voted' : '');
   const Voters = ({ c }: { c: Choice }) =>
@@ -156,7 +160,7 @@ function CardView({
     ) : null;
 
   const onPointerDown = (e: React.PointerEvent) => {
-    if (!hasOptions || locked || e.pointerType === 'mouse') return;
+    if (!hasOptions || hidden || blocked || e.pointerType === 'mouse') return;
     start.current = { x: e.clientX, id: e.pointerId };
   };
   const onPointerMove = (e: React.PointerEvent) => {
@@ -207,38 +211,47 @@ function CardView({
         <div className="awaiting">{room?.tie ? 'Голоса разделились — решает Рассказчик.' : 'Время вышло — решает Рассказчик.'}</div>
       )}
 
-      {hasOptions ? (
+      {card.decider && <div className="decider">{card.decider}</div>}
+
+      {hidden ? null : hasOptions ? (
         <div className="options">
-          <button className={`option left ${mine('left')}`} disabled={locked || !card.left} onClick={() => onChoose('left')}>
+          <button className={`option left ${mine('left')}`} disabled={blocked || !card.left} onClick={() => onChoose('left')}>
             <span className="arrow">◀</span> {card.left}
             <Voters c="left" />
           </button>
-          <button className={`option right ${mine('right')}`} disabled={locked || !card.right} onClick={() => onChoose('right')}>
+          <button className={`option right ${mine('right')}`} disabled={blocked || !card.right} onClick={() => onChoose('right')}>
             {card.right} <span className="arrow">▶</span>
             <Voters c="right" />
           </button>
         </div>
       ) : (
         <div className="options">
-          <button className={`option single ${mine('ack')}`} onClick={onAck}>
+          <button className={`option single ${mine('ack')}`} disabled={blocked} onClick={onAck}>
             {card.deck === 'omen' ? 'Принять знамение' : 'Принять к сведению'}
             <Voters c="ack" />
           </button>
         </div>
       )}
-      {card.canEscalate && hasOptions && (
-        <button className={`escalate ${mine('escalate')}`} disabled={locked} onClick={onEscalate}>
+      {card.canEscalate && !hidden && (
+        <button className={`escalate ${mine('escalate')}`} disabled={blocked} onClick={onEscalate} title="Вмешаться лично: сцена вместо выбора. Цена — время: +1 карта рутины и −1 к шкале. Успех лучше обоих вариантов, провал — хуже.">
           ⚔ Разбираемся лично
           <Voters c="escalate" />
         </button>
       )}
-      {room && !locked && <div className="vote-status">{voteStatus(room)}</div>}
+      {room && !locked && !hidden && <div className="vote-status">{voteStatus(room, card)}</div>}
     </div>
   );
 }
 
-function voteStatus(room: RoomView): string {
+function voteStatus(room: RoomView, card: NonNullable<PublicState['card']>): string {
   const n = room.votes.length;
+  if (card.restrict) {
+    const personal = card.restrict.deciders.length === 1;
+    if (!room.canVote) return 'Решение не за вами — можно советовать вслух.';
+    return personal
+      ? 'Это ваша карта: решаете вы. Нажмите вариант ещё раз, чтобы передумать.'
+      : 'Спорная карта: договоритесь. Если разойдётесь — решит третий.';
+  }
   if (room.mode === 'leader' && room.leaderName)
     return room.isLeader ? 'Вы — ведущий: решение за вами. Голоса остальных — совет.' : `Решает ведущий: ${room.leaderName}. Ваш голос — совет.`;
   if (room.mode === 'first') return 'Решает первый нажавший.';

@@ -14,6 +14,7 @@ import {
 } from '../../engine/types';
 import {
   acknowledge,
+  characterName,
   choose,
   currentView,
   dropSceneRequest,
@@ -36,12 +37,13 @@ import {
   updateSceneRequest,
 } from '../../engine/game';
 import { autobuild } from '../../engine/build';
+import { applyRoll, eventsOf, placeEvent, rollModifiers, TIER_LABELS } from '../../engine/events';
 import { cardTimerSeconds, checkAll, DECK_LABELS, isAvailable, isOneShot, TRACK_ICONS, TRACK_LABELS } from '../../engine/rules';
 import { dispatch, useApp } from '../../store';
 import { disableTimer, pauseTimer, resetTimer, useTimer } from '../../timer';
 import { Md } from '../Md';
 import { SummaryTracks } from '../PlayerScreen';
-import { DeckTag, EffectList, MasterNote, OptionBlock, Requires } from './common';
+import { DeckTag, EffectList, MasterNote, OptionBlock, PersonalChips, Requires } from './common';
 import { RoomPanel } from './RoomPanel';
 
 export function TablePanel() {
@@ -86,6 +88,7 @@ function CurrentCard({ card, game, deck }: { card: Card; game: GameState; deck: 
           Карта {game.interlude.pos + 1} из {game.interlude.queue.length}
         </h2>
         <DeckTag card={card} />
+        <PersonalChips card={card} deck={deck} />
         <code className="muted">{card.id}</code>
       </div>
       {game.awaitingGm && <div className="alert">Игроки ждут решения Рассказчика (время вышло или голоса разделились). Выберите вариант за игроков или сбросьте таймер.</div>}
@@ -97,21 +100,9 @@ function CurrentCard({ card, game, deck }: { card: Card; game: GameState; deck: 
           {card.speaker && <div className="muted">— {card.speaker}</div>}
           <Requires card={card} />
           <div className="small">
-            ⚡ Эскалация:{' '}
-            {esc ? (
-              <b>{esc.title}</b>
-            ) : card.escalation === true ? (
-              <b>импровизация (исход вводит GM)</b>
-            ) : (
-              <label>
-                <input
-                  type="checkbox"
-                  checked={game.escalationAllowed}
-                  onChange={(e) => dispatch((g) => patchState(g, { escalationAllowed: e.target.checked }))}
-                />{' '}
-                разрешить без заготовленной сцены
-              </label>
-            )}
+            ⚡ Разбираемся лично:{' '}
+            {esc ? <b>сцена «{esc.title}»</b> : <b>импровизация: «Успех» лучше обоих вариантов, «Провал» хуже обоих</b>}
+            <span className="muted"> · цена: +1 рутина и −1 к шкале</span>
           </div>
           {card.tags?.length ? <div className="small muted">теги: {card.tags.join(', ')}</div> : null}
         </div>
@@ -135,7 +126,10 @@ function CurrentCard({ card, game, deck }: { card: Card; game: GameState; deck: 
             </button>
           </>
         ) : (
-          <button onClick={() => dispatch(acknowledge)}>{card.deck === 'omen' ? 'Принять знамение' : 'Принять к сведению'}</button>
+          <>
+            <button onClick={() => dispatch(acknowledge)}>{card.deck === 'omen' ? 'Принять знамение' : 'Принять к сведению'}</button>
+            <button onClick={() => dispatch(escalate)}>⚔ Разбираемся лично</button>
+          </>
         )}
         <span className="spacer" />
         {seconds !== null ? (
@@ -173,6 +167,7 @@ function SceneControl({ req, game, deck }: { req: SceneRequest; game: GameState;
       <div className="panel-head">
         <h2>
           {req.kind === 'crisis' ? 'Кризис' : req.kind === 'escalation' ? 'Эскалация' : 'Сцена'}: {scene.title}
+          {scene.owner && <span className="chip personal"> 👤 ведёт {characterName(deck, scene.owner)}</span>}
         </h2>
         {!sceneForRequest(req, deck) && <span className="chip warn">заглушка</span>}
       </div>
@@ -311,10 +306,17 @@ function DraftBuilder({ game, deck }: { game: GameState; deck: DeckData }) {
           onClick={() => {
             const r = autobuild(game, deck);
             setNotes(r.notes);
-            dispatch((g) => setDraftQueue(g, r.queue));
+            // выпавшие случайные события остаются в очереди
+            const evs = game.interlude.queue.filter((id) => deck.cards.find((c) => c.id === id)?.event);
+            const q = r.queue.filter((id) => !evs.includes(id));
+            for (const id of evs) {
+              const imm = deck.cards.find((c) => c.id === id)?.event?.immediate;
+              q.splice(imm ? 0 : Math.floor(Math.random() * (q.length + 1)), 0, id);
+            }
+            dispatch((g) => setDraftQueue(g, q));
           }}
         >
-          🎲 Автосборка
+          🃏 Автосборка
         </button>
         <button className="ghost" onClick={() => dispatch((g) => setDraftQueue(g, []))}>
           Очистить
@@ -329,9 +331,97 @@ function DraftBuilder({ game, deck }: { game: GameState; deck: DeckData }) {
           {n}
         </div>
       ))}
+      <EventRollPanel game={game} deck={deck} />
       <MasterNote text={deck.gmReference} title="📖 Справка мастера" open={false} />
       <QueueList game={game} deck={deck} />
     </section>
+  );
+}
+
+// ---------- случайные события ----------
+
+function EventRollPanel({ game, deck }: { game: GameState; deck: DeckData }) {
+  const r = game.lastRoll?.interlude === game.interlude.number ? game.lastRoll : null;
+  const [pickId, setPickId] = useState('');
+  const card = (id?: string) => deck.cards.find((c) => c.id === id);
+  if (!eventsOf(deck).length) return null;
+  const mods = r ? r.mods : rollModifiers(game);
+  const place = (id: string) => dispatch((g, c) => placeEvent(g, c, id));
+  const placed = r?.placed;
+  const choices = r && r.tier !== 'none' ? eventsOf(deck, r.tier).filter((c) => isAvailable(c, game)) : [];
+  return (
+    <div className="roll-panel">
+      <div className="row wrap">
+        <b>🎲 Случайные события</b>
+        <span className="muted small">один бросок в начале интерлюдии</span>
+        <span className="spacer" />
+        <button className={r ? 'ghost' : 'primary'} onClick={() => dispatch(applyRoll)}>
+          {r ? 'Перебросить' : 'Бросить'}
+        </button>
+      </div>
+      <div className="small muted">
+        Модификаторы: {mods.length ? mods.map((m) => `${m.label} (${m.value > 0 ? '+' : ''}${m.value})`).join('; ') : 'нет'}
+      </div>
+      {r && (
+        <div className="roll-result">
+          <div>
+            d100 = <b>{r.d100}</b>
+            {r.mods.length ? ` → с модификаторами ${r.total}` : ''}: <b>{TIER_LABELS[r.tier]}</b>
+            {r.die && (
+              <>
+                {' '}
+                · d{r.die.sides} = <b>{r.die.value}</b>
+              </>
+            )}
+          </div>
+          {r.notes.map((n, i) => (
+            <div key={i} className="small muted">
+              {n}
+            </div>
+          ))}
+          {r.eventId && (
+            <div className="row wrap">
+              <span>
+                Выпало: <b>{card(r.eventId)?.title}</b>
+                {card(r.eventId)?.event?.immediate ? ' · немедленно' : ''}
+              </span>
+              <button disabled={!!placed} onClick={() => place(r.eventId!)}>
+                {placed === r.eventId ? '✓ в интерлюдии' : 'Положить в интерлюдию'}
+              </button>
+            </div>
+          )}
+          {r.attracted.filter((id) => id !== r.eventId).length > 0 && (
+            <div className="row wrap small">
+              Притягивается флагами (можно взять вместо):
+              {r.attracted
+                .filter((id) => id !== r.eventId)
+                .map((id) => (
+                  <button key={id} disabled={!!placed} onClick={() => place(id)}>
+                    {card(id)?.title}
+                  </button>
+                ))}
+            </div>
+          )}
+          {r.tier !== 'none' && (
+            <div className="row wrap small">
+              Выбор мастера:
+              <select value={pickId} onChange={(e) => setPickId(e.target.value)}>
+                <option value="">—</option>
+                {choices.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.title}
+                  </option>
+                ))}
+              </select>
+              <button disabled={!pickId || !!placed} onClick={() => place(pickId)}>
+                Положить
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+      <MasterNote text={deck.eventRules} title="Правила бросков и личного участия" open={false} />
+    </div>
   );
 }
 
@@ -386,6 +476,7 @@ function QueueList({ game, deck }: { game: GameState; deck: DeckData }) {
             <span className="q-n">{played.length + i + 1}</span>
             <span className="grip">⋮⋮</span>
             {c ? <DeckTag card={c} /> : <span className="chip warn">нет в колоде</span>}
+            {c && <PersonalChips card={c} deck={deck} />}
             <span className="q-title">{c?.title ?? id}</span>
             {isCurrent && <span className="chip">сейчас</span>}
             {c && !isAvailable(c, game) && !isCurrent && <span className="chip warn" title="Условия не выполнены или карта сыграна">⚠</span>}
@@ -474,6 +565,7 @@ function Pool({ game, deck }: { game: GameState; deck: DeckData }) {
           <li key={c.id}>
             <div className="row">
               <DeckTag card={c} />
+              <PersonalChips card={c} deck={deck} />
               <button className="link" onClick={() => setOpen(open === c.id ? null : c.id)}>
                 {c.title}
               </button>

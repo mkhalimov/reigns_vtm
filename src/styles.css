@@ -1132,3 +1132,25 @@ details.master code,
 .track-info p {
   line-height: 1.5;
 }
+.decider {
+  text-align: center;
+  color: var(--accent-2);
+  font-size: 0.8em;
+  border: 1px dashed var(--accent-2);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+.chip.personal {
+  border-color: var(--accent-2);
+  color: var(--accent-2);
+}
+.roll-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 10px 0;
+  background: var(--bg-2);
+}
+.roll-result {
+  margin-top: 6px;
+}

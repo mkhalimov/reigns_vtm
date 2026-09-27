@@ -19,6 +19,7 @@ import {
   type TrackId,
 } from './types';
 import { availableIds, clampTrack, describeEffect, isAvailable, TRACK_LABELS } from './rules';
+import type { Deciders } from './votes';
 
 export type Rng = () => number;
 
@@ -72,6 +73,8 @@ export function newGame(deck: DeckData, settings: Partial<Settings> = {}): GameS
     interlude: undefined as unknown as InterludeState,
     sceneQueue: [],
     escalationAllowed: false,
+    tempEffects: [],
+    lastRoll: null,
     awaitingGm: false,
     playerScreenHidden: false,
     reveal: null,
@@ -138,15 +141,84 @@ export function fallbackScene(r: SceneRequest, deck: DeckData): Scene {
     };
   }
   const card = r.kind !== 'scene' || r.cardId ? cardById(deck, r.cardId ?? '') : undefined;
+  if (card?.secret) {
+    const owner = characterName(deck, card.owner);
+    return { id: 'personal', title: `Личное дело${owner ? `: ${owner}` : ''}`, playerText: '', outcomes: personalOutcomes(card) };
+  }
   return {
     id: 'personal',
     title: card ? `Разбираемся лично: ${card.title}` : 'Сцена',
     playerText: card?.face ?? '',
-    outcomes: [],
+    outcomes: card && r.kind === 'escalation' ? personalOutcomes(card) : [],
   };
 }
 
-export const escalationAvailable = (s: GameState, card: Card) => Boolean(card.escalation) || s.escalationAllowed;
+export const characterName = (deck: DeckData, id: string | undefined) =>
+  id ? (deck.characters?.find((c) => c.id === id)?.name ?? id) : undefined;
+
+/** Кто решает карту (id мест = id персонажей); null — вся котерия. */
+export function decidersOf(card: Card): Deciders | null {
+  if (card.contested) return { deciders: [...card.contested.between], tiebreaker: card.contested.tiebreaker };
+  if (card.owner) return { deciders: [card.owner] };
+  return null;
+}
+
+/** Подсказка для экрана: кто решает. */
+export function deciderText(card: Card, deck: DeckData): string | undefined {
+  const n = (id?: string) => characterName(deck, id);
+  if (card.contested) {
+    const [a, b] = card.contested.between;
+    return `👥 Спорная: решают ${n(a)} и ${n(b)}${card.contested.tiebreaker ? `. Разойдутся — слово за ${n(card.contested.tiebreaker)}` : ''}.`;
+  }
+  if (card.owner) return `👤 Личная карта: решает ${n(card.owner)}. Остальные могут советовать в образе.`;
+  return undefined;
+}
+
+/** Как карта называется в публичной хронике (секретные не раскрываются). */
+export function publicTitle(card: Card, deck: DeckData): string {
+  return card.secret ? `Личная карта (${characterName(deck, card.owner) ?? '?'})` : `«${card.title}»`;
+}
+
+/** «Разбираемся лично» доступно на любой карте (правило личного участия). */
+export const escalationAvailable = (_s: GameState, _card: Card) => true;
+
+/**
+ * Исходы личного участия, если заготовленной сцены нет:
+ * успех — лучше обоих вариантов (негатив не срабатывает, берётся лучший плюс по каждой шкале),
+ * провал — хуже обоих (срабатывают негативные эффекты обоих вариантов).
+ */
+export function personalOutcomes(card: Card): Option[] {
+  const opts = [card.left, card.right].filter((o): o is Option => !!o);
+  const perTrack = (o: Option) => {
+    const m = new Map<TrackId, number>();
+    for (const e of o.effects) if (e.type === 'track') m.set(e.track, (m.get(e.track) ?? 0) + e.delta);
+    return m;
+  };
+  const maps = opts.map(perTrack);
+  const bestPositive: Effect[] = [];
+  const allNegative: Effect[] = [];
+  for (const t of TRACKS) {
+    const best = Math.max(0, ...maps.map((m) => m.get(t) ?? 0));
+    if (best > 0) bestPositive.push({ type: 'track', track: t, delta: best });
+    const neg = maps.reduce((sum, m) => sum + Math.min(0, m.get(t) ?? 0), 0);
+    if (neg < 0) allNegative.push({ type: 'track', track: t, delta: neg });
+  }
+  const ev = card.event;
+  return [
+    {
+      label: 'Успех: лучше обоих вариантов',
+      effects: ev?.successEffects?.length ? ev.successEffects : bestPositive,
+      gmNote: ev?.success
+        ? `**Успех.** ${ev.success}`
+        : 'Негативные эффекты не срабатывают, берётся лучшее из обоих вариантов. Бонус, если сцена его дала, — через «Свой исход».',
+    },
+    {
+      label: 'Провал: хуже обоих вариантов',
+      effects: ev?.failureEffects?.length ? ev.failureEffects : allNegative,
+      gmNote: ev?.failure ? `**Провал.** ${ev.failure}` : 'Срабатывают негативные эффекты обоих вариантов (или ставится более опасный флаг).',
+    },
+  ];
+}
 
 // ---------- эффекты ----------
 
@@ -159,9 +231,13 @@ function applyEffects(s: GameState, effects: Effect[], ctx: Ctx, source: string)
   for (const e of effects) {
     gm.push(describeEffect(e, ctx.deck));
     switch (e.type) {
-      case 'track':
-        s.tracks[e.track] = clampTrack(s.tracks[e.track] + e.delta);
+      case 'track': {
+        const before = s.tracks[e.track];
+        s.tracks[e.track] = clampTrack(before + e.delta);
+        if (e.temporary && s.tracks[e.track] !== before)
+          s.tempEffects.push({ track: e.track, delta: s.tracks[e.track] - before, source });
         break;
+      }
       case 'population':
         s.population = Math.max(0, s.population + e.delta);
         break;
@@ -278,8 +354,21 @@ function settle(s: GameState, ctx: Ctx): void {
       if (s.sceneQueue.length) return;
     }
   }
+  revertTemporary(s, ctx);
   i.status = 'summary';
   log(s, ctx, 'interlude', `Интерлюдия ${i.number} завершена.`, []);
+}
+
+/** Эффекты «на интерлюдию» откатываются в её конце. */
+function revertTemporary(s: GameState, ctx: Ctx): void {
+  if (!s.tempEffects.length) return;
+  const gm: string[] = [];
+  for (const t of s.tempEffects) {
+    s.tracks[t.track] = clampTrack(s.tracks[t.track] - t.delta);
+    gm.push(`${TRACK_LABELS[t.track]} ${t.delta > 0 ? '−' : '+'}${Math.abs(t.delta)} (${t.source})`);
+  }
+  s.tempEffects = [];
+  log(s, ctx, 'system', null, ['Временные эффекты интерлюдии закончились:', ...gm]);
 }
 
 function pickCapacityConflict(s: GameState, ctx: Ctx): Card | undefined {
@@ -372,7 +461,7 @@ export function choose(state: GameState, ctx: Ctx, side: Side, via: ChoiceVia = 
   finishCard(s, ctx, card, { cardId: card.id, title: card.title, decision: opt.label, side });
   const { gm } = applyEffects(s, opt.effects, ctx, card.id);
   const viaText = via === 'gm' ? ' (решение GM)' : via === 'timeout' ? ' (время вышло)' : '';
-  log(s, ctx, 'card', `«${card.title}» — ${opt.label}`, [
+  log(s, ctx, 'card', card.secret ? `${publicTitle(card, ctx.deck)}: решение принято.` : `«${card.title}» — ${opt.label}`, [
     `${side === 'left' ? '◀' : '▶'} ${card.id}${viaText}`,
     ...gm,
     ...(opt.gmNote ? [`⚑ ${opt.gmNote}`] : []),
@@ -392,7 +481,7 @@ export function acknowledge(state: GameState, ctx: Ctx): GameState {
   const s = clone(state);
   const omen = view.card.deck === 'omen';
   finishCard(s, ctx, view.card, { cardId: view.card.id, title: view.card.title, decision: omen ? 'Знамение принято' : 'Принято к сведению', side: 'ack' });
-  log(s, ctx, 'card', `«${view.card.title}»${omen ? ' — знамение.' : ''}`, [view.card.id]);
+  log(s, ctx, 'card', `${publicTitle(view.card, ctx.deck)}${omen ? ' — знамение.' : ''}`, [view.card.id]);
   s.reveal = null;
   flushDuePendingCards(s);
   settle(s, ctx);
@@ -415,7 +504,7 @@ export function escalate(state: GameState, ctx: Ctx): GameState {
   if (extra) s.interlude.queue.push(extra.id);
   const penaltyTrack = pick([...CRISIS_TRACKS], rng);
   s.sceneQueue.push({ kind: 'escalation', id: `r${s.nextId++}`, sceneId: typeof card.escalation === 'string' ? card.escalation : undefined, cardId: card.id, penaltyTrack });
-  log(s, ctx, 'escalation', `«${card.title}» — разбираемся лично.`, [
+  log(s, ctx, 'escalation', `${publicTitle(card, ctx.deck)} — разбираемся лично.`, [
     `⚡ ${typeof card.escalation === 'string' ? card.escalation : 'сцена без заготовки'}`,
     extra ? `Цена времени: ➕ рутина «${extra.title}» (${extra.id})` : 'Цена времени: нет доступной карты рутины',
     `Предложенная шкала для −1: ${TRACK_LABELS[penaltyTrack]}`,
@@ -452,7 +541,10 @@ export function resolveScene(state: GameState, ctx: Ctx, input: ResolveInput): G
     s.tracks[req.track] = clampTrack(req.rollback);
     gm.push(`Откат: ${TRACK_LABELS[req.track]} → ${s.tracks[req.track]}`);
   }
-  log(s, ctx, req.kind === 'crisis' ? 'crisis' : 'scene', `Сцена «${scene.title}»: ${opt.label}`, [
+  const srcCard = req.kind !== 'crisis' && req.cardId ? cardById(ctx.deck, req.cardId) : undefined;
+  const pubLine = srcCard?.secret ? `${publicTitle(srcCard, ctx.deck)}: личное дело решено.` : `Сцена «${scene.title}»: ${opt.label}`;
+  log(s, ctx, req.kind === 'crisis' ? 'crisis' : 'scene', pubLine, [
+    ...(srcCard?.secret ? [`Сцена «${scene.title}»: ${opt.label}`] : []),
     ...gm,
     ...(opt.gmNote ? [`⚑ ${opt.gmNote}`] : []),
   ]);

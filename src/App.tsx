@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { acknowledge, choose, escalate, handleTimeout, patchState } from './engine/game';
-import { publicView, type PublicState } from './engine/public';
+import { acknowledge, choose, currentView, decidersOf, escalate, handleTimeout, patchState } from './engine/game';
+import { publicView, secretCardFor, type PublicState } from './engine/public';
 import { publicJournal, type PublicJournalEntry } from './engine/journal';
 import { gameTimeLabel } from './engine/rules';
 import type { Side } from './engine/types';
@@ -10,7 +10,7 @@ import { CHANNEL, openChannel, type FromPlayers, type TimerView, type ToPlayers 
 import { PlayerScreen } from './ui/PlayerScreen';
 import { TablePanel } from './ui/gm/TablePanel';
 import { DeckPanel, JournalPanel, SettingsPanel } from './ui/gm/OtherPanels';
-import { broadcastState, broadcastTimer, connectedIds, getHost, resetVotes, restoreRoom, setHostHandlers, setSeats } from './net/host';
+import { broadcastState, broadcastTimer, connectedIds, getHost, resetVotes, restoreRoom, setHostHandlers, setSeats, setSecretCard } from './net/host';
 import { decide, type Choice } from './engine/votes';
 
 export default function App() {
@@ -52,7 +52,9 @@ function evaluateVotes(final: boolean): 'choice' | 'tie' | 'wait' | 'none' {
   const pub = publicView(game, deck);
   const h = getHost();
   if (pub.mode !== 'card' || !pub.cardKey || game.awaitingGm || h.voteKey !== pub.cardKey) return 'none';
-  const d = decide(game.settings.decisionMode, h.votes, connectedIds(), h.leaderId, final);
+  const view = currentView(game, deck);
+  const restrict = view.kind === 'card' ? decidersOf(view.card) : null;
+  const d = decide(game.settings.decisionMode, h.votes, connectedIds(), h.leaderId, final, restrict);
   if (d.kind === 'choice') applyChoice(d.choice, pub.cardKey);
   else if (d.kind === 'tie') {
     tieKey = pub.cardKey;
@@ -141,6 +143,9 @@ function Main() {
     resetVotes(pub.cardKey ?? null);
   }, [pub.cardKey]);
   useEffect(pushRoom, [pub, journal, game.settings.decisionMode, game.awaitingGm]);
+  useEffect(() => {
+    setSecretCard(secretCardFor(game, deck));
+  }, [game, deck]);
   useEffect(() => {
     evaluateVotes(false);
   }, [game.settings.decisionMode]);

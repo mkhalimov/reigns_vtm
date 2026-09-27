@@ -116,12 +116,15 @@ export function JoinApp() {
       </div>
     );
 
+  // секретная карта: адресат видит её целиком из личного канала
+  const sc = g.secretCard;
+  const pub = g.pub.card?.secret && sc && sc.cardKey === g.pub.cardKey ? { ...g.pub, card: sc.card } : g.pub;
   return (
     <PlayerScreen
-      pub={g.pub}
+      pub={pub}
       timer={g.timer}
       journal={g.journal}
-      room={g.room ? roomViewFor(g.room, g.clientId) : null}
+      room={g.room ? roomViewFor(g.room, g.clientId, pub.card) : null}
       banner={bar}
       onChoose={(side) => vote(side)}
       onEscalate={() => vote('escalate')}

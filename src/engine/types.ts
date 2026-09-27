@@ -1,7 +1,7 @@
 // Модель данных колоды и состояния партии (ТЗ, раздел 4).
 import type { DecisionMode } from './votes';
 
-export const DECKS = ['routine', 'deruan', 'night', 'gates', 'court', 'mirror', 'omen'] as const;
+export const DECKS = ['routine', 'deruan', 'night', 'gates', 'court', 'mirror', 'omen', 'event'] as const;
 export type DeckId = (typeof DECKS)[number];
 
 /** Шкалы с кризисами (0–10, опасны оба края). */
@@ -31,7 +31,8 @@ export interface Delay {
 }
 
 export type Effect =
-  | { type: 'track'; track: TrackId; delta: number }
+  /** temporary — сдвиг действует до конца текущей интерлюдии, потом откатывается. */
+  | { type: 'track'; track: TrackId; delta: number; temporary?: boolean }
   | { type: 'population'; delta: number }
   | { type: 'setFlag'; flag: string }
   | { type: 'clearFlag'; flag: string }
@@ -68,6 +69,33 @@ export interface Card {
   tags?: string[];
   /** Вариант «по умолчанию при бездействии» (ТЗ 5.2, в). */
   idleDefault?: Side;
+  /** 👤 Личная карта: решает только этот персонаж (id из characters). */
+  owner?: string;
+  /** 👥 Спорная: решают двое, при расхождении — третий. */
+  contested?: { between: [string, string]; tiebreaker?: string };
+  /** Секретная: содержимое видит только адресат на своём телефоне. */
+  secret?: boolean;
+  /** Случайное событие (колода event). */
+  event?: EventMeta;
+}
+
+export type EventTier = 'mild' | 'medium' | 'heavy' | 'catastrophe';
+
+export interface EventMeta {
+  tier: EventTier;
+  /** Грани кубика шага 2, при которых выпадает событие. */
+  roll: number[];
+  /** Разыгрывается сразу (кладётся первой картой). */
+  immediate?: boolean;
+  /** Флаги, притягивающие событие. */
+  attracts?: string[];
+  /** ⚡ Лично: кому ближе. */
+  bestFor?: string;
+  /** Исходы личного участия (текст и распознанные эффекты). */
+  success?: string;
+  failure?: string;
+  successEffects?: Effect[];
+  failureEffects?: Effect[];
 }
 
 export type Side = 'left' | 'right';
@@ -78,6 +106,8 @@ export interface Scene {
   playerText: string;
   gmNotes?: string;
   outcomes: Option[];
+  /** 👤 Личная сцена: кто её ведёт. */
+  owner?: string;
   crisisOf?: { track: CrisisTrackId; edge: Edge };
 }
 
@@ -105,6 +135,8 @@ export interface DeckData {
   trackInfo?: Partial<Record<TrackId, string>>;
   /** Справка мастера: NPC, открытые решения, тон интерлюдий (Markdown). */
   gmReference?: string;
+  /** Правила броска случайных событий (Markdown, для GM). */
+  eventRules?: string;
   cards: Card[];
   scenes: Scene[];
   plotTimers?: PlotTimerDef[];
@@ -234,4 +266,24 @@ export interface GameState {
   journal: JournalEntry[];
   nextId: number;
   settings: Settings;
+  /** Временные сдвиги шкал, которые откатятся в конце интерлюдии. */
+  tempEffects: { track: TrackId; delta: number; source: string }[];
+  /** Последний бросок случайных событий. */
+  lastRoll: EventRoll | null;
+}
+
+export interface EventRoll {
+  interlude: number;
+  d100: number;
+  mods: { label: string; value: number }[];
+  total: number;
+  tier: EventTier | 'none';
+  die?: { sides: number; value: number };
+  /** Выпавшее событие (id карты); undefined — выбор мастера. */
+  eventId?: string;
+  /** События того же уровня, которые притягиваются флагами. */
+  attracted: string[];
+  notes: string[];
+  /** Событие уже положено в интерлюдию. */
+  placed?: string;
 }

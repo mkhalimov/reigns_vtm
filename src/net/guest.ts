@@ -5,8 +5,9 @@ import type { Choice } from '../engine/votes';
 import type { PublicState } from '../engine/public';
 import type { PublicJournalEntry } from '../engine/journal';
 import type { TimerView } from '../channel';
-import { open, roomKey, seal, type RoomKey } from './crypto';
-import { brokers, PING_MS, randomCode, topics, type GuestMsg, type HostMsg, type RoomInfo } from './protocol';
+import { deviceKey, newDeviceSecret, open, roomKey, seal, type RoomKey } from './crypto';
+import type { PublicCard } from '../engine/public';
+import { brokers, PING_MS, privateTopic, randomCode, topics, type GuestMsg, type HostMsg, type PrivateMsg, type RoomInfo } from './protocol';
 
 export interface GuestState {
   /** idle — ввод кода; connecting — связь с ретранслятором; searching — ищем комнату; connected — комната найдена. */
@@ -22,6 +23,8 @@ export interface GuestState {
   /** Рассказчик давно молчит. */
   hostSilent: boolean;
   closed: boolean;
+  /** Секретная карта, пришедшая лично этому устройству. */
+  secretCard: { cardKey: string; card: PublicCard } | null;
 }
 
 const LS = 'rouen-guest';
@@ -38,6 +41,21 @@ function clientId(): string {
     return crypto.randomUUID();
   }
 }
+
+/** Секрет личного канала устройства: знают только этот телефон и хост. */
+function deviceSecret(): string {
+  try {
+    let s = localStorage.getItem('rouen-device-secret');
+    if (!s) {
+      s = newDeviceSecret();
+      localStorage.setItem('rouen-device-secret', s);
+    }
+    return s;
+  } catch {
+    return (memSecret ??= newDeviceSecret());
+  }
+}
+let memSecret: string | null = null;
 
 function savedCode(): string {
   try {
@@ -59,6 +77,7 @@ let g: GuestState = {
   timer: { remaining: null, total: null, paused: false },
   hostSilent: false,
   closed: false,
+  secretCard: null,
 };
 const listeners = new Set<() => void>();
 const set = (patch: Partial<GuestState>) => {
@@ -80,6 +99,7 @@ let key: RoomKey | null = null;
 let session = 0;
 let lastHostMsg = 0;
 let willPayload: Uint8Array = new Uint8Array();
+let devKey: RoomKey | null = null;
 let timers: ReturnType<typeof setInterval>[] = [];
 
 function stop() {
@@ -106,6 +126,7 @@ export async function join(code: string, brokerHint = 0): Promise<void> {
   key = await roomKey(code);
   // «Последняя воля» — ретранслятор сам сообщит хосту, если телефон пропадёт
   willPayload = await seal(key, { type: 'leave', clientId: g.clientId } satisfies GuestMsg);
+  devKey = await deviceKey(deviceSecret());
   if (my !== session) return;
   const list = brokers();
   tryBroker(my, list, brokerHint % list.length, 0);
@@ -118,7 +139,7 @@ export async function join(code: string, brokerHint = 0): Promise<void> {
   );
   timers.push(
     setInterval(() => {
-      if (my === session && g.room?.seats.some((s) => s.holder === g.clientId)) void send({ type: 'ping', clientId: g.clientId });
+      if (my === session && g.room?.seats.some((s) => s.holder === g.clientId)) void send({ type: 'ping', clientId: g.clientId, secret: deviceSecret() });
     }, PING_MS),
   );
 }
@@ -159,14 +180,23 @@ function tryBroker(my: number, list: string[], idx: number, attempt: number): vo
     if (my !== session) return;
     clearTimeout(connectTimer);
     c.subscribe(t.state, { qos: 1 });
+    if (devKey) c.subscribe(privateTopic(key!.topic, devKey.topic), { qos: 1 });
+    if (mySeat()) void send({ type: 'ping', clientId: g.clientId, secret: deviceSecret() });
     if (!found) {
       set({ status: 'searching', stage: `Ищем комнату ${g.code}…` });
       // хост шлёт сердцебиение каждые 5 с и хранит состояние на ретрансляторе
       searchTimer = setTimeout(() => next(`На ${host} комнаты нет, пробуем другой ретранслятор…`), 8000);
     }
   });
-  c.on('message', (_topic, payload) => {
+  c.on('message', (topic, payload) => {
     if (my !== session || !key || !payload.length) return;
+    if (devKey && topic === privateTopic(key.topic, devKey.topic)) {
+      void open<PrivateMsg>(devKey, new Uint8Array(payload)).then((msg) => {
+        if (msg?.type === 'secret' && my === session)
+          set({ secretCard: msg.cardKey && msg.card ? { cardKey: msg.cardKey, card: msg.card } : null });
+      });
+      return;
+    }
     void open<HostMsg>(key, new Uint8Array(payload)).then((msg) => {
       if (!msg || my !== session) return;
       if (msg.type === 'closed') {
@@ -207,7 +237,7 @@ export function leave(): void {
 }
 
 export function pickSeat(seat: string): void {
-  void send({ type: 'join', clientId: g.clientId, seat });
+  void send({ type: 'join', clientId: g.clientId, seat, secret: deviceSecret() });
 }
 
 export function mySeat(): string | null {

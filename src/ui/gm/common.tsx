@@ -1,4 +1,6 @@
 import type { Card, DeckData, Effect, Option } from '../../engine/types';
+import { characterName } from '../../engine/game';
+import { TIER_LABELS } from '../../engine/events';
 import { Md } from '../Md';
 import { describeCondition, describeEffect, DECK_ICONS, DECK_LABELS } from '../../engine/rules';
 
@@ -75,5 +77,27 @@ export function MasterNote({ text, open = true, title = '🎭 Мастеру' }:
       <summary>{title}</summary>
       <Md text={text} />
     </details>
+  );
+}
+
+/** Пометки личной / спорной / секретной карты и уровня события. */
+export function PersonalChips({ card, deck }: { card: Card; deck: DeckData }) {
+  const n = (id?: string) => characterName(deck, id);
+  return (
+    <>
+      {card.owner && <span className="chip personal">👤 {n(card.owner)}</span>}
+      {card.contested && (
+        <span className="chip personal" title={card.contested.tiebreaker ? `при расхождении решает ${n(card.contested.tiebreaker)}` : undefined}>
+          👥 {n(card.contested.between[0])} ↔ {n(card.contested.between[1])}
+        </span>
+      )}
+      {card.secret && <span className="chip warn">🔒 секретная</span>}
+      {card.event && (
+        <span className="chip">
+          {TIER_LABELS[card.event.tier]}
+          {card.event.immediate ? ' · немедленно' : ''}
+        </span>
+      )}
+    </>
   );
 }

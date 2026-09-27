@@ -2,7 +2,8 @@
 // Хост шлёт ТОЛЬКО публичные данные, всё шифруется ключом из кода комнаты (см. crypto.ts).
 import type { PublicState } from '../engine/public';
 import type { PublicJournalEntry } from '../engine/journal';
-import type { Choice, DecisionMode } from '../engine/votes';
+import { canVote, type Choice, type DecisionMode } from '../engine/votes';
+import type { PublicCard } from '../engine/public';
 import type { TimerView } from '../channel';
 
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -36,6 +37,11 @@ export const topics = (roomTopic: string) => ({
   up: `rouen-vtm/v1/${roomTopic}/up`,
 });
 
+/** Личный канал устройства (секретные карты). */
+export const privateTopic = (roomTopic: string, deviceTopic: string) => `rouen-vtm/v1/${roomTopic}/p/${deviceTopic}`;
+
+export type PrivateMsg = { type: 'secret'; cardKey: string | null; card?: PublicCard };
+
 export interface Seat {
   id: string;
   name: string;
@@ -59,10 +65,10 @@ export type HostMsg =
   | { type: 'closed' };
 
 export type GuestMsg =
-  | { type: 'join'; clientId: string; seat: string }
+  | { type: 'join'; clientId: string; seat: string; secret?: string }
   | { type: 'vote'; clientId: string; cardKey: string; choice: Choice }
   | { type: 'unvote'; clientId: string; cardKey: string }
-  | { type: 'ping'; clientId: string }
+  | { type: 'ping'; clientId: string; secret?: string }
   | { type: 'leave'; clientId: string };
 
 /** Вид комнаты для конкретного игрока (вычисляется на его устройстве). */
@@ -74,9 +80,11 @@ export interface RoomView {
   votes: { name: string; choice: Choice }[];
   players: number;
   tie: boolean;
+  /** Этот игрок может голосовать по текущей карте. */
+  canVote: boolean;
 }
 
-export function roomViewFor(room: RoomInfo, clientId: string): RoomView {
+export function roomViewFor(room: RoomInfo, clientId: string, card?: PublicCard | null): RoomView {
   const mySeat = room.seats.find((s) => s.holder === clientId)?.id ?? null;
   const name = (id: string) => room.seats.find((s) => s.id === id)?.name ?? '?';
   return {
@@ -87,6 +95,11 @@ export function roomViewFor(room: RoomInfo, clientId: string): RoomView {
     votes: room.votes.map((v) => ({ name: name(v.seat), choice: v.choice })),
     players: room.seats.filter((s) => s.online).length,
     tie: room.tie,
+    canVote: canVote(
+      mySeat,
+      card?.restrict,
+      room.votes.map((v) => ({ playerId: v.seat, choice: v.choice })),
+    ),
   };
 }
 

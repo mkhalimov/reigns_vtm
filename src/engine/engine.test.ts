@@ -5,6 +5,7 @@ import { parseDeckText, validateDeck } from './validate';
 import {
   acknowledge,
   choose,
+  fallbackScene,
   currentView,
   escalate,
   handleTimeout,
@@ -250,12 +251,28 @@ describe('эскалация (9.4)', () => {
     expect(currentView(s4, deck).kind).toBe('card');
   });
 
-  it('без связанной сцены эскалация недоступна, пока GM не разрешит', () => {
+  it('«Разбираемся лично» на любой карте: успех лучше обоих вариантов, провал хуже', () => {
     const deck = loadDemo();
     const { s, ctx } = start(deck, ['r01_tithe']);
-    expect(escalate(s, ctx)).toBe(s);
-    const s2 = escalate({ ...s, escalationAllowed: true }, ctx);
+    const s2 = escalate(s, ctx);
     expect(s2.sceneQueue).toHaveLength(1);
+    const req = s2.sceneQueue[0];
+    const scene = fallbackScene(req, deck);
+    // r01: ◀ Двор +1, Город −1 · ▶ Двор −1, Ночь +1
+    expect(scene.outcomes.map((o) => o.effects)).toEqual([
+      [
+        { type: 'track', track: 'court', delta: 1 },
+        { type: 'track', track: 'night', delta: 1 },
+      ],
+      [
+        { type: 'track', track: 'court', delta: -1 },
+        { type: 'track', track: 'city', delta: -1 },
+      ],
+    ]);
+    const ok = resolveScene(updateSceneRequest(s2, req.id, { penaltyTrack: 'masquerade' }), ctx, { outcome: 0 });
+    expect(ok.tracks).toMatchObject({ court: 6, night: 6, city: 5, masquerade: 4 });
+    const fail = resolveScene(updateSceneRequest(s2, req.id, { penaltyTrack: 'masquerade' }), ctx, { outcome: 1 });
+    expect(fail.tracks).toMatchObject({ court: 4, city: 4, night: 5, masquerade: 4 });
     const s3 = resolveScene(s2, ctx, { custom: [{ type: 'track', track: 'city', delta: 2 }], customLabel: 'Договорились' });
     expect(s3.journal.some((e) => e.public?.includes('Договорились'))).toBe(true);
   });

@@ -31,6 +31,7 @@ export const TRACK_ICONS: Record<TrackId, string> = {
 
 export const DECK_LABELS: Record<string, string> = {
   routine: 'Рутина',
+  event: 'Событие',
   deruan: 'Де Руан',
   night: 'Ночь',
   gates: 'Ворота',
@@ -41,6 +42,7 @@ export const DECK_LABELS: Record<string, string> = {
 
 export const DECK_ICONS: Record<string, string> = {
   routine: '📜',
+  event: '🎲',
   deruan: '⚜',
   night: '🌑',
   gates: '🚪',

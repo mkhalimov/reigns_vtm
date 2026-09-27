@@ -7,15 +7,19 @@ import type { Choice, Vote } from '../engine/votes';
 import type { PublicState } from '../engine/public';
 import type { PublicJournalEntry } from '../engine/journal';
 import type { TimerView } from '../channel';
-import { open, roomKey, seal, type RoomKey } from './crypto';
+import { deviceKey, open, roomKey, seal, type RoomKey } from './crypto';
+import { canVote, type Deciders } from '../engine/votes';
+import type { PublicCard } from '../engine/public';
 import {
   brokers,
   HEARTBEAT_MS,
   OFFLINE_AFTER_MS,
+  privateTopic,
   randomCode,
   topics,
   type GuestMsg,
   type HostMsg,
+  type PrivateMsg,
   type RoomInfo,
   type Seat,
 } from './protocol';
@@ -70,6 +74,8 @@ let client: MqttClient | null = null;
 let key: RoomKey | null = null;
 let session = 0;
 let hbTimer: ReturnType<typeof setInterval> | null = null;
+/** Секреты устройств (clientId → ключ личного канала). Игрокам не рассылаются. */
+let secrets: Record<string, string> = {};
 
 function remember() {
   try {
@@ -81,6 +87,7 @@ function remember() {
         broker: h.broker,
         leaderId: h.leaderId,
         seats: h.seats.map((s) => ({ ...s, online: false })),
+        secrets,
       }),
     );
   } catch {
@@ -104,6 +111,7 @@ export function restoreRoom(): void {
     const saved = JSON.parse(localStorage.getItem(LS_KEY) ?? 'null');
     if (!saved) return;
     const seats: HostSeat[] = Array.isArray(saved.seats) ? saved.seats : [];
+    secrets = saved.secrets && typeof saved.secrets === 'object' ? saved.secrets : {};
     h = {
       ...h,
       leaderId: saved.leaderId ?? null,
@@ -167,6 +175,7 @@ function tryBroker(my: number, list: string[], idx: number, attempt: number): vo
     set({ status: 'open', error: null, broker: idx % list.length });
     remember();
     republish();
+    void pushSecret(true);
     if (hbTimer) clearInterval(hbTimer);
     hbTimer = setInterval(() => {
       void publish({ type: 'hb', t: Date.now() });
@@ -202,6 +211,7 @@ function handle(msg: GuestMsg): void {
   };
   switch (msg.type) {
     case 'join': {
+      learnSecret(clientId, msg.secret);
       const seat = h.seats.find((s) => s.id === msg.seat);
       if (!seat) return;
       // занятое кем-то другим место, пока тот на связи, не отдаём
@@ -219,9 +229,11 @@ function handle(msg: GuestMsg): void {
       lastSeen.set(seat.id, now);
       remember();
       onVote?.();
+      void pushSecret(true);
       return;
     }
     case 'ping':
+      learnSecret(clientId, msg.secret);
       touch();
       return;
     case 'leave': {
@@ -236,6 +248,8 @@ function handle(msg: GuestMsg): void {
     case 'unvote': {
       const seat = touch();
       if (!seat || msg.cardKey !== h.voteKey) return;
+      // личная/спорная карта: голос не адресата не принимается
+      if (msg.type === 'vote' && !canVote(seat.id, restrict, h.votes)) return;
       const rest = h.votes.filter((v) => v.playerId !== seat.id);
       if (msg.type === 'vote' && isChoice(msg.choice)) set({ votes: [...rest, { playerId: seat.id, choice: msg.choice }] });
       else set({ votes: rest });
@@ -308,15 +322,53 @@ export const connectedIds = () => h.seats.filter((s) => s.online).map((s) => s.i
 // ---------- рассылка ----------
 
 let last: { pub: PublicState; journal: PublicJournalEntry[]; mode: RoomInfo['mode']; tie: boolean } | null = null;
+/** Кто вправе решать текущую карту. */
+let restrict: Deciders | null = null;
 
 function roomInfo(): RoomInfo {
+  const secretCard = !!last!.pub.card?.secret;
   return {
     mode: last!.mode,
     leaderSeat: h.leaderId,
     seats: h.seats,
-    votes: h.votes.map((v) => ({ seat: v.playerId, choice: v.choice })),
+    // по секретной карте не показываем, кто за что проголосовал
+    votes: secretCard ? [] : h.votes.map((v) => ({ seat: v.playerId, choice: v.choice })),
     tie: last!.tie,
   };
+}
+
+function learnSecret(clientId: string, secret: unknown): void {
+  if (typeof secret !== 'string' || secret.length < 20 || secret.length > 80 || secrets[clientId] === secret) return;
+  secrets[clientId] = secret;
+  remember();
+  void pushSecret(true);
+}
+
+// ---------- личный канал: секретные карты ----------
+
+let secretWanted: { seat: string; cardKey: string; card: PublicCard } | null = null;
+let secretSent: { clientId: string; cardKey: string } | null = null;
+
+async function sendPrivate(clientId: string, msg: PrivateMsg): Promise<void> {
+  const sec = secrets[clientId];
+  if (!sec || !client?.connected || !key) return;
+  const dk = await deviceKey(sec);
+  client.publish(privateTopic(key.topic, dk.topic), (await seal(dk, msg)) as unknown as Buffer, { qos: 1, retain: true });
+}
+
+async function pushSecret(force = false): Promise<void> {
+  const holder = secretWanted ? h.seats.find((s) => s.id === secretWanted!.seat)?.holder ?? null : null;
+  const want = secretWanted && holder ? { clientId: holder, cardKey: secretWanted.cardKey } : null;
+  if (!force && JSON.stringify(want) === JSON.stringify(secretSent)) return;
+  if (secretSent && (!want || want.clientId !== secretSent.clientId)) await sendPrivate(secretSent.clientId, { type: 'secret', cardKey: null });
+  if (want && secretWanted) await sendPrivate(want.clientId, { type: 'secret', cardKey: secretWanted.cardKey, card: secretWanted.card });
+  secretSent = want;
+}
+
+/** Текущая секретная карта (или null) — уходит только на телефон адресата. */
+export function setSecretCard(s: { seat: string; cardKey: string; card: PublicCard } | null): void {
+  secretWanted = s;
+  void pushSecret();
 }
 
 function republish(): void {
@@ -326,6 +378,7 @@ function republish(): void {
 
 export function broadcastState(pub: PublicState, journal: PublicJournalEntry[], mode: RoomInfo['mode'], tie: boolean): void {
   last = { pub, journal, mode, tie };
+  restrict = pub.card?.restrict ?? null;
   republish();
 }
 

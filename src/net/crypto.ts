@@ -41,3 +41,16 @@ export async function open<T>(k: RoomKey, data: Uint8Array): Promise<T | null> {
     return null;
   }
 }
+
+/** Личный канал устройства: секрет знает только само устройство и хост. */
+export function newDeviceSecret(): string {
+  const b = crypto.getRandomValues(new Uint8Array(32));
+  return btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+export async function deviceKey(secret: string): Promise<RoomKey> {
+  const raw = Uint8Array.from(atob(secret.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
+  const topic = hex(await crypto.subtle.digest('SHA-256', raw)).slice(0, 32);
+  const key = await crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+  return { topic, key };
+}
