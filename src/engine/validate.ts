@@ -233,6 +233,10 @@ export function validateDeck(raw: unknown): DeckParseResult {
       });
   }
 
+  if (data.start !== undefined && !isObj(data.start)) errors.push('start должен быть объектом {population, tracks}');
+  if (data.trackInfo !== undefined && !isObj(data.trackInfo)) errors.push('trackInfo должен быть объектом {шкала: описание}');
+  if (data.gmReference !== undefined && !isStr(data.gmReference)) errors.push('gmReference должен быть строкой');
+
   if (Array.isArray(data.plotTimers)) {
     data.plotTimers.forEach((t, i) => {
       if (!isObj(t) || !isStr(t.id) || !isStr(t.title))
@@ -283,6 +287,9 @@ export function normalizeDeck(d: DeckData): DeckData {
   return {
     title: d.title,
     characters: d.characters,
+    start: d.start,
+    trackInfo: d.trackInfo,
+    gmReference: d.gmReference,
     plotTimers: d.plotTimers ?? [],
     scenes: (d.scenes ?? []).map((s: Scene) => ({
       ...s,

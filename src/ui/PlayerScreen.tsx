@@ -41,7 +41,7 @@ export function PlayerScreen({ pub, timer, journal, onChoose, onEscalate, onAck,
     <div className="player-screen">
       {corner}
       {banner}
-      <Tracks tracks={pub.tracks} population={pub.population} reveal={pub.reveal} />
+      <Tracks tracks={pub.tracks} population={pub.population} reveal={pub.reveal} info={pub.trackInfo} />
       <div className="player-meta">
         <span>Интерлюдия {pub.interlude}</span>
         {pub.mode === 'card' && (

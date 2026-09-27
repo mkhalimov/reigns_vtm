@@ -160,3 +160,17 @@ export function gameTimeLabel(week: number, startSeason: number): string {
   const year = Math.floor((startSeason + seasonIdx) / 4);
   return `${season}${year > 0 ? ` (год ${year + 1})` : ''}, неделя ${(week % 13) + 1}`;
 }
+
+/** Описания шкал по умолчанию; колода может переопределить их полем trackInfo. */
+export const DEFAULT_TRACK_INFO: Record<TrackId, string> = {
+  masquerade: 'Насколько надёжно домен скрыт от смертных.\n\nОпасны оба края: **0** — Маскарад рушится, **10** — подозрительная тишина привлекает охотников.',
+  court: 'Отношения с князем и его двором.\n\nОпасны оба края: **0** — двор теряет доверие, **10** — домен захотят забрать.',
+  city: 'Жизнь смертного города и влияние на неё.\n\nОпасны оба края: **0** — город взрывается, **10** — к нему приковано слишком много внимания.',
+  night: 'Власть над сородичами домена.\n\nОпасны оба края: **0** — домен считают ничьим, **10** — сюда стекаются все.',
+  capacity: 'Сколько сородичей домен может прокормить. Если **население** больше ёмкости в конце интерлюдии — Маскарад −1 и конфликт за кровь.',
+};
+
+export const trackInfo = (deck: { trackInfo?: Partial<Record<TrackId, string>> }): Record<TrackId, string> => ({
+  ...DEFAULT_TRACK_INFO,
+  ...deck.trackInfo,
+});

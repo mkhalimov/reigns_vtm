@@ -99,6 +99,12 @@ export interface DeckData {
   title?: string;
   /** Персонажи котерии: игроки выбирают одного со своего телефона. */
   characters?: Character[];
+  /** Стартовые значения партии. */
+  start?: { population?: number; tracks?: Partial<Record<TrackId, number>> };
+  /** Описания шкал для игроков (по нажатию на шкалу). */
+  trackInfo?: Partial<Record<TrackId, string>>;
+  /** Справка мастера: NPC, открытые решения, тон интерлюдий (Markdown). */
+  gmReference?: string;
   cards: Card[];
   scenes: Scene[];
   plotTimers?: PlotTimerDef[];

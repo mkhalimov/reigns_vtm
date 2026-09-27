@@ -41,7 +41,7 @@ import { dispatch, useApp } from '../../store';
 import { disableTimer, pauseTimer, resetTimer, useTimer } from '../../timer';
 import { Md } from '../Md';
 import { SummaryTracks } from '../PlayerScreen';
-import { DeckTag, EffectList, OptionBlock, Requires } from './common';
+import { DeckTag, EffectList, MasterNote, OptionBlock, Requires } from './common';
 import { RoomPanel } from './RoomPanel';
 
 export function TablePanel() {
@@ -95,7 +95,6 @@ function CurrentCard({ card, game, deck }: { card: Card; game: GameState; deck: 
           {card.timeOfDay && <div className="muted small">{card.timeOfDay}</div>}
           <Md text={card.face} />
           {card.speaker && <div className="muted">— {card.speaker}</div>}
-          {card.gmNote && <div className="gm-note">⚑ {card.gmNote}</div>}
           <Requires card={card} />
           <div className="small">
             ⚡ Эскалация:{' '}
@@ -121,6 +120,7 @@ function CurrentCard({ card, game, deck }: { card: Card; game: GameState; deck: 
           <OptionBlock side="▶" opt={card.right} deck={deck} idle={card.idleDefault === 'right'} />
         </div>
       </div>
+      <MasterNote text={card.gmNote} />
       <div className="row wrap">
         {hasOptions ? (
           <>
@@ -178,11 +178,7 @@ function SceneControl({ req, game, deck }: { req: SceneRequest; game: GameState;
       </div>
       <div className="muted small">Игроки видят:</div>
       <Md text={scene.playerText || '—'} className="player-text" />
-      {scene.gmNotes && (
-        <div className="gm-note">
-          ⚑ <Md text={scene.gmNotes} />
-        </div>
-      )}
+      <MasterNote text={scene.gmNotes} />
       {req.kind === 'escalation' && (
         <div className="row">
           Цена времени: −1 к шкале{' '}
@@ -333,6 +329,7 @@ function DraftBuilder({ game, deck }: { game: GameState; deck: DeckData }) {
           {n}
         </div>
       ))}
+      <MasterNote text={deck.gmReference} title="📖 Справка мастера" open={false} />
       <QueueList game={game} deck={deck} />
     </section>
   );
@@ -503,7 +500,7 @@ function Pool({ game, deck }: { game: GameState; deck: DeckData }) {
               <div className="pool-detail">
                 <code className="muted">{c.id}</code>
                 <Md text={c.face} />
-                {c.gmNote && <div className="gm-note">⚑ {c.gmNote}</div>}
+                <MasterNote text={c.gmNote} open={false} />
                 <Requires card={c} />
                 <div className="current-options">
                   <OptionBlock side="◀" opt={c.left} deck={deck} />

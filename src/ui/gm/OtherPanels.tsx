@@ -10,7 +10,7 @@ import { publicView } from '../../engine/public';
 import { builtInDeck, currentSave, dispatch, loadSave, newGameSameDeck, replaceDeck, useApp } from '../../store';
 import { Md } from '../Md';
 import { PlayerScreen } from '../PlayerScreen';
-import { DeckTag, download, OptionBlock, readFile, Requires, stamp } from './common';
+import { DeckTag, download, MasterNote, OptionBlock, readFile, Requires, stamp } from './common';
 import type { DeckData } from '../../engine/types';
 import { newGame, setDraftQueue, startInterlude } from '../../engine/game';
 
@@ -124,6 +124,9 @@ export function DeckPanel() {
             ⚜ Встроенная колода «Руан»
           </button>
         </div>
+        <div className="gm-ref">
+          <MasterNote text={deck.gmReference} title="📖 Справка мастера" open={false} />
+        </div>
         <details>
           <summary>Вставить JSON колоды вручную</summary>
           <textarea className="json" value={text} onChange={(e) => setText(e.target.value)} rows={10} placeholder='{"cards": [...], "scenes": [...]}' />
@@ -226,7 +229,7 @@ export function DeckPanel() {
           <div className="preview-frame">
             <PreviewAsPlayers deck={deck} cardId={previewCard.id} />
           </div>
-          {previewCard.gmNote && <div className="gm-note">⚑ {previewCard.gmNote}</div>}
+          <MasterNote text={previewCard.gmNote} />
           <Requires card={previewCard} />
           <div className="current-options">
             <OptionBlock side="◀" opt={previewCard.left} deck={deck} />

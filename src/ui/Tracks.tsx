@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { TRACKS, type TrackId } from '../engine/types';
 import { TRACK_ICONS, TRACK_LABELS } from '../engine/rules';
+import { Md } from './Md';
 
 export type RevealDelta = number | 'up' | 'down';
 
@@ -9,12 +10,15 @@ interface Props {
   population?: number;
   reveal?: { seq: number; deltas: Partial<Record<TrackId, RevealDelta>> } | null;
   compact?: boolean;
+  /** Описания шкал: если заданы, по нажатию на шкалу открывается пояснение. */
+  info?: Record<TrackId, string>;
 }
 
 const danger = (t: TrackId, v: number) => t !== 'capacity' && (v <= 2 || v >= 8);
 
-export function Tracks({ tracks, population, reveal, compact }: Props) {
+export function Tracks({ tracks, population, reveal, compact, info }: Props) {
   const [shown, setShown] = useState<number | null>(null);
+  const [open, setOpen] = useState<TrackId | null>(null);
   useEffect(() => {
     if (!reveal) return;
     setShown(reveal.seq);
@@ -29,7 +33,15 @@ export function Tracks({ tracks, population, reveal, compact }: Props) {
         const d = shown !== null && reveal?.seq === shown ? reveal.deltas[t] : undefined;
         const up = d === 'up' || (typeof d === 'number' && d > 0);
         return (
-          <div key={t} className={`track ${danger(t, v) ? 'danger' : ''} ${t === 'capacity' ? 'capacity' : ''}`} title={TRACK_LABELS[t]}>
+          <div
+            key={t}
+            className={`track ${danger(t, v) ? 'danger' : ''} ${t === 'capacity' ? 'capacity' : ''}`}
+            title={info ? `${TRACK_LABELS[t]} — нажмите, чтобы узнать, что это` : TRACK_LABELS[t]}
+            role={info ? 'button' : undefined}
+            tabIndex={info ? 0 : undefined}
+            onClick={info ? () => setOpen(t) : undefined}
+            onKeyDown={info ? (e) => (e.key === 'Enter' || e.key === ' ') && setOpen(t) : undefined}
+          >
             <div className="track-head">
               <span className="track-icon">{TRACK_ICONS[t]}</span>
               <span className="track-name">{TRACK_LABELS[t]}</span>
@@ -52,6 +64,24 @@ export function Tracks({ tracks, population, reveal, compact }: Props) {
           </div>
         );
       })}
+      {open && info && (
+        <div className="overlay" onClick={() => setOpen(null)}>
+          <div className="overlay-panel track-info" onClick={(e) => e.stopPropagation()}>
+            <h2>
+              <span>{TRACK_ICONS[open]}</span> {TRACK_LABELS[open]}
+              <span className="track-info-value">{tracks[open]} / 10</span>
+            </h2>
+            <Md text={info[open]} />
+            {open === 'capacity' && population !== undefined && (
+              <p>
+                Сейчас: ёмкость <b>{tracks.capacity}</b>, население <b>{population}</b>
+                {population > tracks.capacity ? ' — домен перенаселён.' : '.'}
+              </p>
+            )}
+            <button onClick={() => setOpen(null)}>Понятно</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

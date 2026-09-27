@@ -1,4 +1,5 @@
 import type { Card, DeckData, Effect, Option } from '../../engine/types';
+import { Md } from '../Md';
 import { describeCondition, describeEffect, DECK_ICONS, DECK_LABELS } from '../../engine/rules';
 
 export function EffectList({ effects, deck }: { effects: Effect[]; deck: DeckData }) {
@@ -22,7 +23,7 @@ export function OptionBlock({ side, opt, deck, idle }: { side: string; opt?: Opt
         {side} {opt.label} {idle && <span className="chip warn" title="Вариант по умолчанию при бездействии">по умолч.</span>}
       </div>
       <EffectList effects={opt.effects} deck={deck} />
-      {opt.gmNote && <div className="gm-note">⚑ {opt.gmNote}</div>}
+      {opt.gmNote && <Md className="gm-note opt-note" text={opt.gmNote} />}
       {opt.opensScene && <div className="gm-note">⚡ открывает сцену: {opt.opensScene}</div>}
     </div>
   );
@@ -65,3 +66,14 @@ export function readFile(accept: string): Promise<string | null> {
 }
 
 export const stamp = () => new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+
+/** Мастерский блок карты или сцены (🎭 Мастеру) — полный текст, игрокам не уходит. */
+export function MasterNote({ text, open = true, title = '🎭 Мастеру' }: { text?: string; open?: boolean; title?: string }) {
+  if (!text?.trim()) return null;
+  return (
+    <details className="master" open={open}>
+      <summary>{title}</summary>
+      <Md text={text} />
+    </details>
+  );
+}

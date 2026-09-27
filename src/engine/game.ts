@@ -57,11 +57,11 @@ function emptyInterlude(number: number, s: GameState, deck: DeckData): Interlude
 }
 
 export function newGame(deck: DeckData, settings: Partial<Settings> = {}): GameState {
-  const tracks = Object.fromEntries(TRACKS.map((t) => [t, TRACK_START])) as Record<TrackId, number>;
+  const tracks = Object.fromEntries(TRACKS.map((t) => [t, clampTrack(deck.start?.tracks?.[t] ?? TRACK_START)])) as Record<TrackId, number>;
   const s: GameState = {
     version: 1,
     tracks,
-    population: 0,
+    population: Math.max(0, deck.start?.population ?? 0),
     timers: Object.fromEntries((deck.plotTimers ?? []).map((t) => [t.id, 0])),
     flags: [],
     played: [],

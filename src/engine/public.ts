@@ -2,7 +2,7 @@
 // Экран игроков получает ТОЛЬКО этот объект: ни флагов, ни заметок, ни эффектов, ни пула.
 import type { DeckId, GameState, DeckData, TrackId } from './types';
 import { currentView, escalationAvailable, fallbackScene, interludeSummary } from './game';
-import { cardTimerSeconds, gameTimeLabel } from './rules';
+import { cardTimerSeconds, gameTimeLabel, trackInfo } from './rules';
 
 export interface PublicCard {
   title: string;
@@ -26,6 +26,8 @@ export interface PublicState {
   time: string;
   tracks: Record<TrackId, number>;
   population: number;
+  /** Описания шкал для игроков. */
+  trackInfo: Record<TrackId, string>;
   card?: PublicCard;
   /** Ключ текущей карты (чтобы UI сбрасывал анимации/таймер). */
   cardKey?: string;
@@ -51,6 +53,7 @@ export function publicView(s: GameState, deck: DeckData): PublicState {
     time: gameTimeLabel(s.week, s.settings.startSeason),
     tracks: { ...s.tracks },
     population: s.population,
+    trackInfo: trackInfo(deck),
     awaitingGm: s.awaitingGm,
     reveal: s.reveal
       ? {

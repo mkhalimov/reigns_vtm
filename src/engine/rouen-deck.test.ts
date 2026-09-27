@@ -5,6 +5,7 @@ import type { Condition, DeckData, Effect, GameState } from './types';
 import { validateDeck } from './validate';
 import { acknowledge, choose, currentView, escalate, newGame, nextInterlude, resolveScene, setDraftQueue, startInterlude, type Ctx } from './game';
 import { autobuild } from './build';
+import { publicView } from './public';
 
 const deck = (): DeckData => {
   const r = validateDeck(raw);
@@ -36,6 +37,25 @@ describe('колода «Руан»', () => {
     expect(d.cards.filter((c) => c.interlude === 1)).toHaveLength(16);
     expect(d.cards.filter((c) => c.interlude === 2)).toHaveLength(17);
     expect(d.cards.filter((c) => c.interlude === 3)).toHaveLength(16);
+  });
+
+  it('у каждой карты есть мастерское описание, и оно не уходит игрокам', () => {
+    const d = deck();
+    expect(d.cards.every((c) => (c.gmNote ?? '').length > 100)).toBe(true);
+    const ctx: Ctx = { deck: d, rng: () => 0 };
+    let s = newGame(d);
+    expect(s.population).toBe(3); // котерия живёт в домене
+    s = startInterlude(setDraftQueue(s, ['c01_keys', 'c03_steps']), ctx);
+    const pub = publicView(s, d);
+    expect(pub.card?.face).toContain('Дюпен');
+    expect(pub.trackInfo.masquerade).toContain('скрыт от смертных');
+    const json = JSON.stringify(pub);
+    for (const secret of ['Гастон', 'Суть.', 'Женевьева', 'Мадам Блез', 'старые_слуги']) expect(json).not.toContain(secret);
+    s = choose(s, ctx, 'left');
+    s = choose(s, ctx, 'right'); // карта 3 ▶ — сцена «Мёртвые хозяева»
+    const scenePub = JSON.stringify(publicView(s, d));
+    expect(scenePub).toContain('Мёртвые хозяева');
+    for (const secret of ['Этьен', 'Маргерит', 'Оковы']) expect(scenePub).not.toContain(secret);
   });
 
   it('каждый флаг из условий ставится хотя бы одним эффектом', () => {
