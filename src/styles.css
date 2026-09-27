@@ -1058,3 +1058,11 @@ pre.json {
   font-size: 0.7em;
   color: var(--muted);
 }
+.join-form .seat {
+  font-family: var(--serif);
+  font-size: 22px;
+  padding: 16px;
+}
+.center {
+  text-align: center;
+}

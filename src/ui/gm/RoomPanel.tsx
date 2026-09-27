@@ -1,7 +1,7 @@
 // Комната для игроков на своих устройствах: код, ссылка, QR, игроки, голоса.
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
-import { closeRoom, newCode, openRoom, removePlayer, setLeader, useHost } from '../../net/host';
+import { closeRoom, freeSeat, newCode, openRoom, setLeader, useHost } from '../../net/host';
 import { joinUrl } from '../../net/protocol';
 import { DECISION_MODE_LABELS, type Choice, type DecisionMode } from '../../engine/votes';
 import { updateSettings } from '../../engine/game';
@@ -14,7 +14,7 @@ export function RoomPanel() {
   const mode = useApp((s) => s.game.settings.decisionMode);
   const [qr, setQr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const url = h.code ? joinUrl(h.code) : '';
+  const url = h.code ? joinUrl(h.code, h.broker) : '';
 
   useEffect(() => {
     if (!url) return setQr(null);
@@ -26,13 +26,13 @@ export function RoomPanel() {
       <section className="panel side">
         <h3>📡 Комната для телефонов</h3>
         <p className="small muted">Игроки заходят со своих устройств по коду или QR и голосуют сами.</p>
-        <button className="primary" onClick={() => openRoom()}>
+        <button className="primary" onClick={() => void openRoom()}>
           Открыть комнату
         </button>
       </section>
     );
 
-  const connected = h.players.filter((p) => p.connected);
+  const connected = h.seats.filter((p) => p.online);
   return (
     <section className="panel side">
       <h3>
@@ -69,26 +69,27 @@ export function RoomPanel() {
         {mode === 'vote' && connected.length > 0 && ` · голосов ${h.votes.filter((v) => connected.some((p) => p.id === v.playerId)).length} из ${connected.length}`}
       </div>
       <ul className="room-players">
-        {h.players.map((p) => {
+        {h.seats.map((p) => {
           const v = h.votes.find((x) => x.playerId === p.id);
           return (
             <li key={p.id}>
-              <span className={`dot ${p.connected ? 'on' : ''}`} />
+              <span className={`dot ${p.online ? 'on' : ''}`} title={p.online ? 'на связи' : p.holder ? 'не на связи' : 'свободен'} />
               {mode === 'leader' && (
                 <input type="radio" name="leader" title="Ведущий игрок" checked={h.leaderId === p.id} onChange={() => setLeader(p.id)} />
               )}
-              <span>{p.name}</span>
+              <span className={p.holder ? '' : 'muted'}>{p.name}</span>
+              {!p.holder && <span className="small muted">свободен</span>}
               {v && <span className="chip ok">{CHOICE_LABELS[v.choice]}</span>}
               <span className="spacer" />
-              {!p.connected && (
-                <button className="icon tiny" title="Убрать из списка" onClick={() => removePlayer(p.id)}>
+              {p.holder && (
+                <button className="icon tiny" title="Освободить персонажа (игрок сменил телефон)" onClick={() => freeSeat(p.id)}>
                   ×
                 </button>
               )}
             </li>
           );
         })}
-        {!h.players.length && <li className="muted small">Пока никого</li>}
+
       </ul>
       {mode === 'leader' && !h.leaderId && <div className="small muted">Отметьте ведущего игрока кружком. Пока его нет — решает голосование.</div>}
       <div className="row">

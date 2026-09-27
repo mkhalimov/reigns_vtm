@@ -1,5 +1,19 @@
 {
   "title": "Руан — колода на игру",
+  "characters": [
+    {
+      "id": "magnus",
+      "name": "Магнус"
+    },
+    {
+      "id": "eva",
+      "name": "Ева"
+    },
+    {
+      "id": "boris",
+      "name": "Борис"
+    }
+  ],
   "plotTimers": [
     {
       "id": "genevieve_archive",

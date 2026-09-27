@@ -21,8 +21,8 @@ jobs:
       - run: npm test
       - run: npm run build
         env:
-          # свой сервер знакомств PeerJS (необязательно): Settings → Secrets and variables → Actions → Variables
-          VITE_PEER_SERVER: ${{ vars.PEER_SERVER }}
+          # свой MQTT-ретранслятор (необязательно): Settings → Secrets and variables → Actions → Variables
+          VITE_MQTT_URL: ${{ vars.MQTT_URL }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

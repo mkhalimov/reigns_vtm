@@ -10,7 +10,7 @@ import { CHANNEL, openChannel, type FromPlayers, type TimerView, type ToPlayers 
 import { PlayerScreen } from './ui/PlayerScreen';
 import { TablePanel } from './ui/gm/TablePanel';
 import { DeckPanel, JournalPanel, SettingsPanel } from './ui/gm/OtherPanels';
-import { broadcastState, broadcastTimer, connectedIds, getHost, resetVotes, restoreRoom, setHostHandlers } from './net/host';
+import { broadcastState, broadcastTimer, connectedIds, getHost, resetVotes, restoreRoom, setHostHandlers, setSeats } from './net/host';
 import { decide, type Choice } from './engine/votes';
 
 export default function App() {
@@ -33,6 +33,9 @@ function playerAction(msg: FromPlayers) {
   else if (msg.type === 'escalate') dispatch(escalate);
   else if (msg.type === 'ack') dispatch(acknowledge);
 }
+
+const DEFAULT_SEATS = [1, 2, 3].map((n) => ({ id: `player${n}`, name: `Игрок ${n}` }));
+const seatsOf = (deck: { characters?: { id: string; name: string }[] }) => (deck.characters?.length ? deck.characters : DEFAULT_SEATS);
 
 /** Карта, на которой голоса разделились (для надписи у игроков). */
 let tieKey: string | null = null;
@@ -74,7 +77,10 @@ function Main() {
   const [tab, setTab] = useState<'table' | 'journal' | 'deck' | 'settings'>('table');
 
   useEffect(() => {
-    void init().then(() => restoreRoom());
+    void init().then(() => {
+      setSeats(seatsOf(getState().deck));
+      restoreRoom();
+    });
   }, []);
 
   const pub = useMemo(() => publicView(game, deck), [game, deck]);
@@ -128,6 +134,9 @@ function Main() {
   useEffect(() => {
     setHostHandlers({ onVote: () => evaluateVotes(false), onChange: pushRoom });
   }, []);
+  useEffect(() => {
+    if (loaded) setSeats(seatsOf(deck));
+  }, [deck, loaded]);
   useEffect(() => {
     resetVotes(pub.cardKey ?? null);
   }, [pub.cardKey]);

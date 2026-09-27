@@ -225,6 +225,14 @@ export function validateDeck(raw: unknown): DeckParseResult {
       if (c[f] !== undefined && !isStr(c[f])) errors.push(`${w}: ${f} должен быть строкой`);
   });
 
+  if (data.characters !== undefined) {
+    if (!Array.isArray(data.characters)) errors.push('characters должен быть массивом {id, name}');
+    else
+      data.characters.forEach((c, i) => {
+        if (!isObj(c) || !isStr(c.id) || !c.id || !isStr(c.name) || !c.name) errors.push(`Персонаж #${i + 1}: нужны поля id и name`);
+      });
+  }
+
   if (Array.isArray(data.plotTimers)) {
     data.plotTimers.forEach((t, i) => {
       if (!isObj(t) || !isStr(t.id) || !isStr(t.title))
@@ -274,6 +282,7 @@ function normalizeOption(o: Option | undefined): Option | undefined {
 export function normalizeDeck(d: DeckData): DeckData {
   return {
     title: d.title,
+    characters: d.characters,
     plotTimers: d.plotTimers ?? [],
     scenes: (d.scenes ?? []).map((s: Scene) => ({
       ...s,

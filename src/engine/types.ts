@@ -90,8 +90,15 @@ export interface PlotTimerDef {
   max?: number;
 }
 
+export interface Character {
+  id: string;
+  name: string;
+}
+
 export interface DeckData {
   title?: string;
+  /** Персонажи котерии: игроки выбирают одного со своего телефона. */
+  characters?: Character[];
   cards: Card[];
   scenes: Scene[];
   plotTimers?: PlotTimerDef[];

@@ -30,6 +30,7 @@ describe('колода «Руан»', () => {
   it('49 карт, 11 сцен из документа + кризисы, без ошибок', () => {
     const d = deck();
     expect(d.cards).toHaveLength(49);
+    expect(d.characters?.map((c) => c.name)).toEqual(['Магнус', 'Ева', 'Борис']);
     expect(d.scenes.filter((s) => /^s_[а-яa-z]{1,2}_/.test(s.id) && s.outcomes.length === 2)).toHaveLength(11);
     expect(d.scenes.filter((s) => s.crisisOf)).toHaveLength(8);
     expect(d.cards.filter((c) => c.interlude === 1)).toHaveLength(16);

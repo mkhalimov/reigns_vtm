@@ -1,32 +1,46 @@
-// Комната Рассказчика: принимает подключения игроков по WebRTC (PeerJS) и рассылает публичную проекцию.
+// Комната Рассказчика: связь с телефонами игроков через публичный MQTT-ретранслятор (WebSocket по TLS).
 // Партия живёт только в браузере GM; устройства игроков получают PublicState, журнал «что решили» и голоса.
+// Всё зашифровано ключом из кода комнаты, ретранслятор видит только шифротекст.
 import { useSyncExternalStore } from 'react';
-import Peer, { type DataConnection } from 'peerjs';
+import mqtt, { type MqttClient } from 'mqtt';
 import type { Choice, Vote } from '../engine/votes';
 import type { PublicState } from '../engine/public';
 import type { PublicJournalEntry } from '../engine/journal';
 import type { TimerView } from '../channel';
-import { PEER_PREFIX, peerOptions, randomCode, type GuestMsg, type HostMsg, type RoomView } from './protocol';
+import { open, roomKey, seal, type RoomKey } from './crypto';
+import {
+  brokers,
+  HEARTBEAT_MS,
+  OFFLINE_AFTER_MS,
+  randomCode,
+  topics,
+  type GuestMsg,
+  type HostMsg,
+  type RoomInfo,
+  type Seat,
+} from './protocol';
 
-export interface RoomPlayer {
-  id: string;
-  name: string;
-  connected: boolean;
-}
+export type HostSeat = Seat;
+
+/** Когда место последний раз подавало голос/пинг (вне стора, чтобы пинги не вызывали рассылку). */
+const lastSeen = new Map<string, number>();
 
 export interface HostState {
   status: 'off' | 'opening' | 'open' | 'error';
   code: string | null;
+  broker: number;
   error: string | null;
-  players: RoomPlayer[];
+  seats: HostSeat[];
+  /** Голоса по id мест (персонажей). */
   votes: Vote[];
   voteKey: string | null;
   leaderId: string | null;
 }
 
 const LS_KEY = 'rouen-room';
+const JOURNAL_LIMIT = 120;
 
-let h: HostState = { status: 'off', code: null, error: null, players: [], votes: [], voteKey: null, leaderId: null };
+let h: HostState = { status: 'off', code: null, broker: 0, error: null, seats: [], votes: [], voteKey: null, leaderId: null };
 const listeners = new Set<() => void>();
 function set(patch: Partial<HostState>) {
   h = { ...h, ...patch };
@@ -44,11 +58,7 @@ export const useHost = () =>
     () => h,
   );
 
-let peer: Peer | null = null;
-const conns = new Map<string, DataConnection>();
-let retries = 0;
-
-/** Хук App: пришёл голос или изменился состав — пересчитать решение. */
+/** Хуки App: пришёл голос / изменился состав — пересчитать решение и разослать состояние. */
 let onChange: (() => void) | null = null;
 let onVote: (() => void) | null = null;
 export function setHostHandlers(handlers: { onVote: () => void; onChange: () => void }) {
@@ -56,125 +66,219 @@ export function setHostHandlers(handlers: { onVote: () => void; onChange: () => 
   onChange = handlers.onChange;
 }
 
+let client: MqttClient | null = null;
+let key: RoomKey | null = null;
+let session = 0;
+let hbTimer: ReturnType<typeof setInterval> | null = null;
+
 function remember() {
   try {
-    localStorage.setItem(LS_KEY, JSON.stringify({ open: h.status === 'open' || h.status === 'opening', code: h.code, leaderId: h.leaderId, players: h.players.map((p) => ({ ...p, connected: false })) }));
+    localStorage.setItem(
+      LS_KEY,
+      JSON.stringify({
+        open: h.status !== 'off',
+        code: h.code,
+        broker: h.broker,
+        leaderId: h.leaderId,
+        seats: h.seats.map((s) => ({ ...s, online: false })),
+      }),
+    );
   } catch {
     /* нет localStorage — комната просто не переоткроется сама */
   }
+}
+
+/** Персонажи из колоды — места для игроков. Занятость сохраняется, если id совпадают. */
+export function setSeats(chars: { id: string; name: string }[]): void {
+  const seats = chars.map((c) => {
+    const old = h.seats.find((s) => s.id === c.id);
+    return { id: c.id, name: c.name, holder: old?.holder ?? null, online: old?.online ?? false };
+  });
+  if (JSON.stringify(seats) === JSON.stringify(h.seats)) return;
+  // без remember(): при загрузке это вызывается до restoreRoom и затёрло бы сохранённую комнату
+  set({ seats, votes: h.votes.filter((v) => seats.some((s) => s.id === v.playerId)) });
 }
 
 export function restoreRoom(): void {
   try {
     const saved = JSON.parse(localStorage.getItem(LS_KEY) ?? 'null');
     if (!saved) return;
-    h = { ...h, leaderId: saved.leaderId ?? null, players: saved.players ?? [], code: saved.code ?? null };
-    if (saved.open && saved.code) openRoom(saved.code);
+    const seats: HostSeat[] = Array.isArray(saved.seats) ? saved.seats : [];
+    h = {
+      ...h,
+      leaderId: saved.leaderId ?? null,
+      code: saved.code ?? null,
+      broker: saved.broker ?? 0,
+      seats: h.seats.map((s) => ({ ...s, holder: seats.find((x) => x.id === s.id)?.holder ?? null })),
+    };
+    if (saved.open && saved.code) void openRoom(saved.code);
   } catch {
     /* повреждённая запись — игнорируем */
   }
 }
 
-export function openRoom(code: string = h.code ?? randomCode()): void {
-  closePeer();
+function stopClient(): void {
+  session++;
+  if (hbTimer) clearInterval(hbTimer);
+  hbTimer = null;
+  client?.end(true);
+  client = null;
+}
+
+export async function openRoom(code: string = h.code ?? randomCode()): Promise<void> {
+  stopClient();
+  const my = session;
   set({ status: 'opening', code, error: null });
   remember();
-  const p = new Peer(PEER_PREFIX + code, peerOptions());
-  peer = p;
-  p.on('open', () => {
-    retries = 0;
-    set({ status: 'open', error: null });
+  key = await roomKey(code);
+  if (my !== session) return;
+  const list = brokers();
+  const start = h.code === code && h.broker < list.length ? h.broker : 0;
+  tryBroker(my, list, start, 0);
+}
+
+function tryBroker(my: number, list: string[], idx: number, attempt: number): void {
+  if (my !== session) return;
+  const url = list[idx % list.length];
+  const t = topics(key!.topic);
+  const c = mqtt.connect(url, {
+    clientId: `rouen-h-${randomCode(8)}`,
+    clean: true,
+    connectTimeout: 8000,
+    reconnectPeriod: 3000,
+    keepalive: 30,
+  });
+  client = c;
+  let everConnected = false;
+  const giveUp = setTimeout(() => {
+    if (everConnected || my !== session) return;
+    c.end(true);
+    const next = attempt + 1;
+    set({ error: `Ретранслятор ${new URL(url).hostname} недоступен, пробуем другой…` });
+    if (next >= list.length * 2) set({ status: 'error', error: 'Не удалось подключиться ни к одному ретранслятору. Проверьте интернет (VPN не мешает).' });
+    else tryBroker(my, list, idx + 1, next);
+  }, 10000);
+
+  c.on('connect', () => {
+    if (my !== session) return;
+    everConnected = true;
+    clearTimeout(giveUp);
+    c.subscribe(t.up, { qos: 1 });
+    set({ status: 'open', error: null, broker: idx % list.length });
     remember();
+    republish();
+    if (hbTimer) clearInterval(hbTimer);
+    hbTimer = setInterval(() => {
+      void publish({ type: 'hb', t: Date.now() });
+      sweep();
+    }, HEARTBEAT_MS);
   });
-  p.on('connection', (conn) => attach(conn));
-  p.on('disconnected', () => {
-    // потеряна связь с сервером знакомств; уже установленные соединения продолжают работать
-    if (peer === p && !p.destroyed) setTimeout(() => !p.destroyed && p.reconnect(), 2000);
+  c.on('reconnect', () => {
+    if (my === session && everConnected) set({ status: 'opening', error: 'Связь с ретранслятором потеряна, переподключаемся…' });
   });
-  p.on('error', (err: { type?: string; message?: string }) => {
-    if (peer !== p) return;
-    if (err.type === 'unavailable-id' && retries < 6) {
-      // после перезагрузки страницы старая регистрация кода держится ещё несколько секунд
-      retries++;
-      set({ status: 'opening', error: 'Код ещё занят прошлой сессией, повторяем…' });
-      setTimeout(() => peer === p && openRoom(code), 4000);
-      return;
-    }
-    if (err.type === 'peer-unavailable') return;
-    set({ status: 'error', error: describe(err) });
+  c.on('message', (_topic, payload) => {
+    if (my !== session || !key) return;
+    void open<GuestMsg>(key, new Uint8Array(payload)).then((msg) => msg && handle(msg));
   });
 }
 
-function describe(err: { type?: string; message?: string }): string {
-  switch (err.type) {
-    case 'unavailable-id':
-      return 'Этот код занят. Нажмите «Новый код».';
-    case 'network':
-    case 'server-error':
-    case 'socket-error':
-    case 'socket-closed':
-      return 'Нет связи с сервером знакомств (нужен интернет для открытия комнаты).';
-    case 'browser-incompatible':
-      return 'Браузер не поддерживает WebRTC.';
-    default:
-      return err.message ?? String(err.type ?? 'ошибка');
-  }
+async function publish(msg: HostMsg, retain = false): Promise<void> {
+  if (!client || !key || !client.connected) return;
+  const t = topics(key.topic);
+  const data = await seal(key, msg);
+  client.publish(t.state, data as unknown as Buffer, { qos: retain ? 1 : 0, retain });
 }
 
-function attach(conn: DataConnection) {
-  let clientId: string | null = null;
-  conn.on('data', (raw) => {
-    const msg = raw as GuestMsg;
-    if (!msg || typeof msg !== 'object') return;
-    if (msg.type === 'join') {
-      clientId = String(msg.clientId).slice(0, 64);
-      const name = String(msg.name ?? '').trim().slice(0, 40) || 'Игрок';
-      const old = conns.get(clientId);
-      if (old && old !== conn) old.close();
-      conns.set(clientId, conn);
-      const exists = h.players.some((pl) => pl.id === clientId);
+function handle(msg: GuestMsg): void {
+  const now = Date.now();
+  const clientId = String(msg.clientId ?? '').slice(0, 64);
+  if (!clientId) return;
+  const touch = () => {
+    const seat = h.seats.find((s) => s.holder === clientId);
+    if (!seat) return null;
+    lastSeen.set(seat.id, now);
+    if (!seat.online) set({ seats: h.seats.map((s) => (s === seat ? { ...s, online: true } : s)) });
+    return seat;
+  };
+  switch (msg.type) {
+    case 'join': {
+      const seat = h.seats.find((s) => s.id === msg.seat);
+      if (!seat) return;
+      // занятое кем-то другим место, пока тот на связи, не отдаём
+      if (seat.holder && seat.holder !== clientId && seat.online) return republish();
       set({
-        players: exists
-          ? h.players.map((pl) => (pl.id === clientId ? { ...pl, name, connected: true } : pl))
-          : [...h.players, { id: clientId, name, connected: true }],
+        seats: h.seats.map((s) =>
+          s.id === seat.id
+            ? { ...s, holder: clientId, online: true }
+            : s.holder === clientId
+              ? { ...s, holder: null, online: false }
+              : s,
+        ),
+        votes: h.votes.filter((v) => v.playerId !== seat.id || seat.holder === clientId),
       });
+      lastSeen.set(seat.id, now);
       remember();
-      sendTo(clientId);
+      onVote?.();
       return;
     }
-    if (!clientId) return;
-    if (msg.type === 'vote' && msg.cardKey === h.voteKey && isChoice(msg.choice)) {
-      set({ votes: [...h.votes.filter((v) => v.playerId !== clientId), { playerId: clientId, choice: msg.choice }] });
-      onVote?.();
-    } else if (msg.type === 'unvote' && msg.cardKey === h.voteKey) {
-      set({ votes: h.votes.filter((v) => v.playerId !== clientId) });
+    case 'ping':
+      touch();
+      return;
+    case 'leave': {
+      const seat = h.seats.find((s) => s.holder === clientId);
+      if (seat) {
+        set({ seats: h.seats.map((s) => (s === seat ? { ...s, online: false } : s)) });
+        onVote?.();
+      }
+      return;
     }
-  });
-  conn.on('close', () => {
-    if (!clientId || conns.get(clientId) !== conn) return;
-    conns.delete(clientId);
-    set({ players: h.players.map((pl) => (pl.id === clientId ? { ...pl, connected: false } : pl)) });
-    onVote?.(); // в голосовании могли остаться только проголосовавшие
-  });
+    case 'vote':
+    case 'unvote': {
+      const seat = touch();
+      if (!seat || msg.cardKey !== h.voteKey) return;
+      const rest = h.votes.filter((v) => v.playerId !== seat.id);
+      if (msg.type === 'vote' && isChoice(msg.choice)) set({ votes: [...rest, { playerId: seat.id, choice: msg.choice }] });
+      else set({ votes: rest });
+      onVote?.();
+      return;
+    }
+  }
 }
 
 const isChoice = (c: unknown): c is Choice => c === 'left' || c === 'right' || c === 'escalate' || c === 'ack';
 
-function closePeer() {
-  conns.forEach((c) => c.close());
-  conns.clear();
-  if (peer && !peer.destroyed) peer.destroy();
-  peer = null;
+/** Молчащие дольше OFFLINE_AFTER_MS считаются отключившимися. */
+function sweep(): void {
+  const now = Date.now();
+  const stale = (s: HostSeat) => s.online && now - (lastSeen.get(s.id) ?? 0) > OFFLINE_AFTER_MS;
+  if (!h.seats.some(stale)) return;
+  set({ seats: h.seats.map((s) => (stale(s) ? { ...s, online: false } : s)) });
+  onVote?.();
 }
 
 export function closeRoom(): void {
-  closePeer();
-  set({ status: 'off', error: null, players: h.players.map((p) => ({ ...p, connected: false })), votes: [] });
+  const c = client;
+  const k = key;
+  if (c?.connected && k) {
+    // стираем сохранённое состояние на ретрансляторе и сообщаем игрокам
+    const t = topics(k.topic);
+    void seal(k, { type: 'closed' } satisfies HostMsg).then((d) => {
+      c.publish(t.state, d as unknown as Buffer, { qos: 0 });
+      c.publish(t.state, '', { retain: true, qos: 1 }, () => c.end());
+    });
+    client = null;
+    session++;
+    if (hbTimer) clearInterval(hbTimer);
+    hbTimer = null;
+  } else stopClient();
+  set({ status: 'off', error: null, seats: h.seats.map((s) => ({ ...s, online: false })), votes: [] });
   remember();
 }
 
 export function newCode(): void {
-  openRoom(randomCode());
+  closeRoom();
+  set({ seats: h.seats.map((s) => ({ ...s, holder: null, online: false })), leaderId: null, broker: 0 });
+  void openRoom(randomCode());
 }
 
 export function setLeader(id: string | null): void {
@@ -183,60 +287,52 @@ export function setLeader(id: string | null): void {
   onVote?.();
 }
 
-export function removePlayer(id: string): void {
-  conns.get(id)?.close();
-  conns.delete(id);
-  set({ players: h.players.filter((p) => p.id !== id), votes: h.votes.filter((v) => v.playerId !== id), leaderId: h.leaderId === id ? null : h.leaderId });
+/** Освободить место (игрок сменил устройство или ушёл). */
+export function freeSeat(id: string): void {
+  set({
+    seats: h.seats.map((s) => (s.id === id ? { ...s, holder: null, online: false } : s)),
+    votes: h.votes.filter((v) => v.playerId !== id),
+  });
   remember();
+  onVote?.();
 }
 
 /** Новая карта → голоса обнуляются. */
-export function resetVotes(key: string | null): void {
-  if (key === h.voteKey) return;
-  set({ voteKey: key, votes: [] });
+export function resetVotes(k: string | null): void {
+  if (k === h.voteKey) return;
+  set({ voteKey: k, votes: [] });
 }
 
-export const connectedIds = () => h.players.filter((p) => p.connected).map((p) => p.id);
+export const connectedIds = () => h.seats.filter((s) => s.online).map((s) => s.id);
 
 // ---------- рассылка ----------
 
-let last: { pub: PublicState; journal: PublicJournalEntry[]; mode: RoomView['mode']; tie: boolean } | null = null;
+let last: { pub: PublicState; journal: PublicJournalEntry[]; mode: RoomInfo['mode']; tie: boolean } | null = null;
 
-function roomView(forId: string): RoomView {
-  const name = (id: string) => h.players.find((p) => p.id === id)?.name ?? '?';
+function roomInfo(): RoomInfo {
   return {
     mode: last!.mode,
-    leaderName: h.leaderId ? name(h.leaderId) : null,
-    isLeader: h.leaderId === forId,
-    myVote: h.votes.find((v) => v.playerId === forId)?.choice ?? null,
-    votes: h.votes.filter((v) => conns.has(v.playerId)).map((v) => ({ name: name(v.playerId), choice: v.choice })),
-    players: conns.size,
+    leaderSeat: h.leaderId,
+    seats: h.seats,
+    votes: h.votes.map((v) => ({ seat: v.playerId, choice: v.choice })),
     tie: last!.tie,
   };
 }
 
-function send(conn: DataConnection, msg: HostMsg) {
-  try {
-    if (conn.open) void conn.send(msg);
-  } catch {
-    /* соединение закрывается — игрок переподключится */
-  }
+function republish(): void {
+  if (!last) return;
+  void publish({ type: 'state', t: Date.now(), pub: last.pub, journal: last.journal.slice(-JOURNAL_LIMIT), room: roomInfo() }, true);
 }
 
-function sendTo(id: string) {
-  const c = conns.get(id);
-  if (!c || !last) return;
-  send(c, { type: 'state', pub: last.pub, journal: last.journal, room: roomView(id) });
-  if (lastTimer) send(c, { type: 'timer', timer: lastTimer });
-}
-
-export function broadcastState(pub: PublicState, journal: PublicJournalEntry[], mode: RoomView['mode'], tie: boolean): void {
+export function broadcastState(pub: PublicState, journal: PublicJournalEntry[], mode: RoomInfo['mode'], tie: boolean): void {
   last = { pub, journal, mode, tie };
-  conns.forEach((_, id) => sendTo(id));
+  republish();
 }
 
-let lastTimer: TimerView | null = null;
+let lastTimerSent = '';
 export function broadcastTimer(timer: TimerView): void {
-  lastTimer = timer;
-  conns.forEach((c) => send(c, { type: 'timer', timer }));
+  const s = JSON.stringify(timer);
+  if (s === lastTimerSent) return;
+  lastTimerSent = s;
+  void publish({ type: 'timer', t: Date.now(), timer });
 }
