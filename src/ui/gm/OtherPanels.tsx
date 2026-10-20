@@ -8,7 +8,7 @@ import { decksWithRole, trackName } from '../../engine/scenario';
 import { ScenarioLoader } from './ScenarioLoader';
 import { parseSave } from '../../engine/save';
 import { publicView } from '../../engine/public';
-import { currentSave, dispatch, loadSave, newGameSameDeck, useApp } from '../../store';
+import { currentSave, dispatch, loadSave, newGameSameDeck, resetScenario, useApp } from '../../store';
 import { Md } from '../Md';
 import { PlayerScreen } from '../PlayerScreen';
 import { DeckTag, download, MasterNote, OptionBlock, readFile, Requires, stamp } from './common';
@@ -93,7 +93,18 @@ export function DeckPanel() {
           </span>
           <span className="spacer" />
           {deck.cards.length > 0 && (
-            <button onClick={() => download(`scenario-${stamp()}.json`, JSON.stringify(deck, null, 2))}>⬇ Экспорт JSON</button>
+            <>
+              <button onClick={() => download(`scenario-${stamp()}.json`, JSON.stringify(deck, null, 2))}>⬇ Экспорт JSON</button>
+              <button
+              className="danger"
+              onClick={() =>
+                confirm('Сбросить сценарий и текущую партию? Откроется стартовый экран загрузки. Партию сначала можно выгрузить: Настройки → Экспорт сохранения.') &&
+                resetScenario()
+              }
+            >
+              ✖ Сбросить сценарий
+            </button>
+            </>
           )}
         </div>
         <ScenarioLoader />
@@ -237,6 +248,15 @@ export function SettingsPanel() {
             onClick={() => confirm('Начать новую партию с текущей колодой? (Отменить можно кнопкой «Отмена»)') && newGameSameDeck()}
           >
             Новая партия
+          </button>
+          <button
+            className="danger"
+            onClick={() =>
+              confirm('Сбросить сценарий и текущую партию? Откроется стартовый экран загрузки. Партию сначала можно выгрузить: Настройки → Экспорт сохранения.') &&
+              resetScenario()
+            }
+          >
+            ✖ Сбросить сценарий
           </button>
         </div>
         {err && <div className="alert mono small">{err}</div>}

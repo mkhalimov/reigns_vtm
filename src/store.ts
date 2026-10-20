@@ -87,6 +87,11 @@ export function loadSave(save: SaveFile): void {
   set({ deck: save.deck, game: save.game, history: save.history ?? [] });
 }
 
+/** Выгрузить сценарий и партию — вернуться к стартовому экрану. */
+export function resetScenario(): void {
+  set({ deck: EMPTY_DECK, game: newGame(EMPTY_DECK, state.game.settings), history: [] });
+}
+
 export function newGameSameDeck(): void {
   set({ game: newGame(state.deck, state.game.settings), history: [...state.history, state.game].slice(-HISTORY_LIMIT) });
 }
