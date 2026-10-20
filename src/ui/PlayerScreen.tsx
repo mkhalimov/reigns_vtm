@@ -3,7 +3,6 @@ import { useRef, useState, type ReactNode } from 'react';
 import type { PublicState } from '../engine/public';
 import type { PublicJournalEntry } from '../engine/journal';
 import type { Side } from '../engine/types';
-import { DECK_ICONS, DECK_LABELS, TRACK_LABELS } from '../engine/rules';
 import type { TimerView } from '../channel';
 import type { RoomView } from '../net/protocol';
 import type { Choice } from '../engine/votes';
@@ -31,8 +30,8 @@ export function PlayerScreen({ pub, timer, journal, onChoose, onEscalate, onAck,
       <div className="player-screen splash">
         {corner}
         <div className="splash-inner">
-          <div className="splash-sigil">⚜</div>
-          <div className="splash-text">Ночь над Руаном…</div>
+          <div className="splash-sigil">✦</div>
+          <div className="splash-text">{pub.meta?.splash ?? 'Мастер готовит продолжение…'}</div>
         </div>
       </div>
     );
@@ -41,9 +40,18 @@ export function PlayerScreen({ pub, timer, journal, onChoose, onEscalate, onAck,
     <div className="player-screen">
       {corner}
       {banner}
-      <Tracks tracks={pub.tracks} population={pub.population} reveal={pub.reveal} info={pub.trackInfo} />
+      <Tracks
+        defs={pub.trackDefs ?? []}
+        tracks={pub.tracks}
+        population={pub.population}
+        populationInfo={pub.populationInfo}
+        reveal={pub.reveal}
+        info={pub.trackInfo}
+      />
       <div className="player-meta">
-        <span>Интерлюдия {pub.interlude}</span>
+        <span>
+          {pub.meta?.round ?? 'Интерлюдия'} {pub.interlude}
+        </span>
         {pub.mode === 'card' && (
           <span>
             Карта {pub.cardIndex} из {pub.cardTotal}
@@ -56,7 +64,7 @@ export function PlayerScreen({ pub, timer, journal, onChoose, onEscalate, onAck,
       </div>
 
       <div className="player-stage">
-        {pub.mode === 'draft' && <div className="waiting">Рассказчик готовит следующую интерлюдию…</div>}
+        {pub.mode === 'draft' && <div className="waiting">Мастер готовит следующий раунд…</div>}
         {pub.mode === 'card' && pub.card && (
           <CardView pub={pub} timer={timer} onChoose={onChoose} onEscalate={onEscalate} onAck={onAck} room={room} key={pub.cardKey} />
         )}
@@ -70,8 +78,10 @@ export function PlayerScreen({ pub, timer, journal, onChoose, onEscalate, onAck,
         )}
         {pub.mode === 'summary' && pub.summary && (
           <div className="summary-view">
-            <h1>Итоги интерлюдии {pub.interlude}</h1>
-            <SummaryTracks before={pub.summary.before} after={pub.summary.after} />
+            <h1>
+              Итоги: {(pub.meta?.round ?? 'Интерлюдия').toLowerCase()} {pub.interlude}
+            </h1>
+            <SummaryTracks before={pub.summary.before} after={pub.summary.after} names={Object.fromEntries((pub.trackDefs ?? []).map((t) => [t.id, t.name]))} />
             <ol className="decisions">
               {pub.summary.decisions.map((d, i) => (
                 <li key={i}>
@@ -108,7 +118,15 @@ export function PlayerScreen({ pub, timer, journal, onChoose, onEscalate, onAck,
   );
 }
 
-export function SummaryTracks({ before, after }: { before: Record<string, number>; after: Record<string, number> }) {
+export function SummaryTracks({
+  before,
+  after,
+  names,
+}: {
+  before: Record<string, number>;
+  after: Record<string, number>;
+  names: Record<string, string>;
+}) {
   return (
     <table className="summary-tracks">
       <tbody>
@@ -116,7 +134,7 @@ export function SummaryTracks({ before, after }: { before: Record<string, number
           const d = after[t] - before[t];
           return (
             <tr key={t}>
-              <td>{TRACK_LABELS[t as keyof typeof TRACK_LABELS]}</td>
+              <td>{names[t] ?? t}</td>
               <td>{before[t]}</td>
               <td>→</td>
               <td>{after[t]}</td>
@@ -180,8 +198,11 @@ function CardView({
   return (
     <div className="card-wrap">
       <div
-        className={`card deck-${card.deck} ${hint ? `hint-${hint}` : ''}`}
-        style={{ transform: dx ? `translateX(${dx}px) rotate(${dx / 25}deg)` : undefined }}
+        className={`card ${hint ? `hint-${hint}` : ''}`}
+        style={{
+          transform: dx ? `translateX(${dx}px) rotate(${dx / 25}deg)` : undefined,
+          ['--deck' as string]: card.deckColor ?? 'var(--accent-2)',
+        }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -189,7 +210,7 @@ function CardView({
       >
         <div className="card-top">
           <span className="card-deck">
-            {DECK_ICONS[card.deck]} {DECK_LABELS[card.deck]}
+            {card.deckIcon} {card.deckName ?? card.deck}
           </span>
           {card.timeOfDay && <span className="card-tod">{card.timeOfDay}</span>}
         </div>
@@ -208,7 +229,7 @@ function CardView({
       )}
 
       {locked && (
-        <div className="awaiting">{room?.tie ? 'Голоса разделились — решает Рассказчик.' : 'Время вышло — решает Рассказчик.'}</div>
+        <div className="awaiting">{room?.tie ? 'Голоса разделились — решает Мастер.' : 'Время вышло — решает Мастер.'}</div>
       )}
 
       {card.decider && <div className="decider">{card.decider}</div>}

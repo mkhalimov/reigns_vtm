@@ -1,14 +1,13 @@
 // Модель данных колоды и состояния партии (ТЗ, раздел 4).
 import type { DecisionMode } from './votes';
 
-export const DECKS = ['routine', 'deruan', 'night', 'gates', 'court', 'mirror', 'omen', 'event'] as const;
-export type DeckId = (typeof DECKS)[number];
+/** id колоды из сценария (decks[].id). */
+export type DeckId = string;
 
 /** Шкалы с кризисами (0–10, опасны оба края). */
-export const CRISIS_TRACKS = ['masquerade', 'court', 'city', 'night'] as const;
-export const TRACKS = [...CRISIS_TRACKS, 'capacity'] as const;
-export type CrisisTrackId = (typeof CRISIS_TRACKS)[number];
-export type TrackId = (typeof TRACKS)[number];
+/** id шкалы из сценария (tracks[].id). Все шкалы — 0–10. */
+export type TrackId = string;
+export type CrisisTrackId = string;
 
 export const TRACK_MIN = 0;
 export const TRACK_MAX = 10;
@@ -125,13 +124,84 @@ export interface Character {
   name: string;
 }
 
+/** Шкала сценария. Диапазон всегда 0–10, опасные зоны 0–2 и 8–10. */
+export interface TrackDef {
+  id: string;
+  name: string;
+  icon?: string;
+  /** Стартовое значение (по умолчанию 5). */
+  start?: number;
+  /** Есть ли кризисы на 0 и 10 (по умолчанию да). */
+  crisis?: boolean;
+  /** Описание для игроков (Markdown) — по нажатию на шкалу. */
+  description?: string;
+}
+
+/**
+ * Роль колоды для автосборки: routine — рутина (и цена времени при «Разбираемся лично»),
+ * line — сюжетные линии, mirror — личные/рефлексия, omen — знамения, event — случайные события (только броском),
+ * other — не участвует в автосборке.
+ */
+export type DeckRole = 'routine' | 'line' | 'mirror' | 'omen' | 'event' | 'other';
+
+export interface DeckDef {
+  id: string;
+  name: string;
+  icon?: string;
+  /** Цвет полосы и метки, CSS-цвет. */
+  color?: string;
+  role?: DeckRole;
+  /** Таймер карт колоды: секунды или null (без таймера). По умолчанию — настройка партии. */
+  timer?: number | null;
+}
+
+/** Население и ёмкость: если население в конце раунда больше значения capacityTrack — штраф и карта-конфликт. */
+export interface PopulationDef {
+  label?: string;
+  start?: number;
+  capacityTrack: TrackId;
+  overflow?: {
+    track: TrackId;
+    delta: number;
+    /** Сообщение в хронику (видят игроки). */
+    message?: string;
+    /** Откуда брать карту-конфликт: колода и/или тег. */
+    conflictDeck?: DeckId;
+    conflictTag?: string;
+  };
+}
+
+/** Оформление и термины сценария. */
+export interface ScenarioMeta {
+  /** Название в шапке пульта и на телефонах, например «⚜ Руан». */
+  brand?: string;
+  /** Текст заставки при скрытом экране игроков. */
+  splash?: string;
+  /** Как называется раунд (по умолчанию «Интерлюдия»). */
+  round?: string;
+}
+
+export interface CalendarDef {
+  /** Сезоны по кругу (по умолчанию Зима, Весна, Лето, Осень). */
+  seasons?: string[];
+  /** Недель в сезоне (по умолчанию 13). */
+  weeksPerSeason?: number;
+}
+
 export interface DeckData {
   title?: string;
-  /** Персонажи котерии: игроки выбирают одного со своего телефона. */
+  /** Персонажи игроков: каждый выбирает одного со своего телефона. */
   characters?: Character[];
-  /** Стартовые значения партии. */
+  /** Шкалы сценария (после загрузки всегда заполнены). */
+  tracks: TrackDef[];
+  /** Колоды сценария (после загрузки всегда заполнены). */
+  decks: DeckDef[];
+  /** Механика населения и ёмкости (необязательно). */
+  population?: PopulationDef;
+  meta?: ScenarioMeta;
+  calendar?: CalendarDef;
+  /** Устаревшие поля (переносятся в tracks/population при загрузке). */
   start?: { population?: number; tracks?: Partial<Record<TrackId, number>> };
-  /** Описания шкал для игроков (по нажатию на шкалу). */
   trackInfo?: Partial<Record<TrackId, string>>;
   /** Справка мастера: NPC, открытые решения, тон интерлюдий (Markdown). */
   gmReference?: string;

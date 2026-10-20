@@ -9,47 +9,8 @@ import {
   type Effect,
   type GameState,
   type Settings,
-  type TrackId,
 } from './types';
-
-export const TRACK_LABELS: Record<TrackId | 'population', string> = {
-  masquerade: 'Маскарад',
-  court: 'Двор',
-  city: 'Город',
-  night: 'Ночь',
-  capacity: 'Ёмкость',
-  population: 'Население',
-};
-
-export const TRACK_ICONS: Record<TrackId, string> = {
-  masquerade: '🩸',
-  court: '👑',
-  city: '🏚',
-  night: '🕯',
-  capacity: '📦',
-};
-
-export const DECK_LABELS: Record<string, string> = {
-  routine: 'Рутина',
-  event: 'Событие',
-  deruan: 'Де Руан',
-  night: 'Ночь',
-  gates: 'Ворота',
-  court: 'Двор',
-  mirror: 'Зеркало',
-  omen: 'Знамения',
-};
-
-export const DECK_ICONS: Record<string, string> = {
-  routine: '📜',
-  event: '🎲',
-  deruan: '⚜',
-  night: '🌑',
-  gates: '🚪',
-  court: '👑',
-  mirror: '🪞',
-  omen: '✴',
-};
+import { deckDef, roundName, trackName } from './scenario';
 
 export const clampTrack = (v: number) => Math.max(TRACK_MIN, Math.min(TRACK_MAX, Math.round(v)));
 
@@ -86,12 +47,12 @@ export function checkCondition(c: Condition, s: GameState): boolean {
 export const checkAll = (conds: Condition[] | undefined, s: GameState) =>
   !conds || conds.every((c) => checkCondition(c, s));
 
-export function describeCondition(c: Condition): string {
-  if ('anyOf' in c) return `одно из (${c.anyOf.map(describeCondition).join(' | ')})`;
-  if ('allOf' in c) return `все (${c.allOf.map(describeCondition).join(' & ')})`;
+export function describeCondition(c: Condition, deck?: DeckData): string {
+  if ('anyOf' in c) return `одно из (${c.anyOf.map((x) => describeCondition(x, deck)).join(' | ')})`;
+  if ('allOf' in c) return `все (${c.allOf.map((x) => describeCondition(x, deck)).join(' & ')})`;
   if ('flag' in c) return `флаг ${c.flag}`;
   if ('notFlag' in c) return `НЕ флаг ${c.notFlag}`;
-  if ('track' in c) return `${TRACK_LABELS[c.track]} ${c.op} ${c.value}`;
+  if ('track' in c) return `${trackName(deck, c.track)} ${c.op} ${c.value}`;
   return `таймер ${c.timer} ${c.op} ${c.value}`;
 }
 
@@ -104,9 +65,9 @@ export function describeEffect(e: Effect, deck?: DeckData): string {
   };
   switch (e.type) {
     case 'track':
-      return `${TRACK_LABELS[e.track]} ${signed(e.delta)}`;
+      return `${trackName(deck, e.track)} ${signed(e.delta)}${e.temporary ? ` (до конца раунда)` : ''}`;
     case 'population':
-      return `Население ${signed(e.delta)}`;
+      return `${trackName(deck, 'population')} ${signed(e.delta)}`;
     case 'setFlag':
       return `⚑ +${e.flag}`;
     case 'clearFlag':
@@ -116,12 +77,13 @@ export function describeEffect(e: Effect, deck?: DeckData): string {
       return `⏳ ${t?.title ?? e.id} ${signed(e.delta)}`;
     }
     case 'addCard': {
+      const round = roundName(deck).toLowerCase();
       const d = e.delay?.interludes
-        ? ` через ${e.delay.interludes} интерл.`
+        ? ` через ${e.delay.interludes} (${round})`
         : e.delay?.cards
           ? ` через ${e.delay.cards} карт`
           : e.delay?.interludes === 0
-            ? ' в эту интерлюдию'
+            ? ` в этот раунд`
             : ' следующей';
       return `➕ карта ${cardTitle(e.card)}${d}`;
     }
@@ -132,12 +94,13 @@ export function describeEffect(e: Effect, deck?: DeckData): string {
   }
 }
 
-/** Секунды таймера для карты; null — без таймера. */
-export function cardTimerSeconds(card: Card, settings: Settings): number | null {
+/** Секунды таймера для карты; null — без таймера. Порядок: карта → колода → настройка партии. */
+export function cardTimerSeconds(card: Card, settings: Settings, deck?: DeckData): number | null {
   if (!card.left && !card.right) return null;
   if (card.timer === null) return null;
   if (card.timer !== undefined) return card.timer;
-  if (card.deck === 'mirror') return null;
+  const dt = deckDef(deck, card.deck).timer;
+  if (dt !== undefined) return dt;
   return settings.timerDefault;
 }
 
@@ -154,25 +117,14 @@ export function availableIds(deck: DeckData, s: GameState): string[] {
   return deck.cards.filter((c) => isAvailable(c, s)).map((c) => c.id);
 }
 
-export const SEASONS = ['Зима', 'Весна', 'Лето', 'Осень'];
+export const DEFAULT_SEASONS = ['Зима', 'Весна', 'Лето', 'Осень'];
 
-export function gameTimeLabel(week: number, startSeason: number): string {
-  const seasonIdx = Math.floor(week / 13);
-  const season = SEASONS[(startSeason + seasonIdx) % 4];
-  const year = Math.floor((startSeason + seasonIdx) / 4);
-  return `${season}${year > 0 ? ` (год ${year + 1})` : ''}, неделя ${(week % 13) + 1}`;
+export function gameTimeLabel(week: number, startSeason: number, deck?: DeckData): string {
+  const seasons = deck?.calendar?.seasons?.length ? deck.calendar.seasons : DEFAULT_SEASONS;
+  const per = Math.max(1, deck?.calendar?.weeksPerSeason ?? 13);
+  const n = seasons.length;
+  const seasonIdx = Math.floor(week / per);
+  const season = seasons[(startSeason + seasonIdx) % n];
+  const year = Math.floor((startSeason + seasonIdx) / n);
+  return `${season}${year > 0 ? ` (год ${year + 1})` : ''}, неделя ${(week % per) + 1}`;
 }
-
-/** Описания шкал по умолчанию; колода может переопределить их полем trackInfo. */
-export const DEFAULT_TRACK_INFO: Record<TrackId, string> = {
-  masquerade: 'Насколько надёжно домен скрыт от смертных.\n\nОпасны оба края: **0** — Маскарад рушится, **10** — подозрительная тишина привлекает охотников.',
-  court: 'Отношения с князем и его двором.\n\nОпасны оба края: **0** — двор теряет доверие, **10** — домен захотят забрать.',
-  city: 'Жизнь смертного города и влияние на неё.\n\nОпасны оба края: **0** — город взрывается, **10** — к нему приковано слишком много внимания.',
-  night: 'Власть над сородичами домена.\n\nОпасны оба края: **0** — домен считают ничьим, **10** — сюда стекаются все.',
-  capacity: 'Сколько сородичей домен может прокормить. Если **население** больше ёмкости в конце интерлюдии — Маскарад −1 и конфликт за кровь.',
-};
-
-export const trackInfo = (deck: { trackInfo?: Partial<Record<TrackId, string>> }): Record<TrackId, string> => ({
-  ...DEFAULT_TRACK_INFO,
-  ...deck.trackInfo,
-});

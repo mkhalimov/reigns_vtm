@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { join, leave, mySeat, pickSeat, useGuest, vote } from '../net/guest';
 import { normalizeCode, roomViewFor } from '../net/protocol';
 import { PlayerScreen } from './PlayerScreen';
+import { APP_NAME } from '../engine/scenario';
 
 function parseHash(): { code: string; broker: number } {
   const [code = '', broker = '0'] = location.hash.replace(/^#\/join\/?/, '').split('/');
@@ -31,7 +32,7 @@ export function JoinApp() {
             if (c) void join(c);
           }}
         >
-          <h1>⚜ Руан</h1>
+          <h1>{g.pub?.meta?.brand ?? `✦ ${APP_NAME}`}</h1>
           <label>
             Код комнаты
             <input className="code" value={code} onChange={(e) => setCode(normalizeCode(e.target.value))} maxLength={8} autoCapitalize="characters" required />
@@ -48,8 +49,8 @@ export function JoinApp() {
     return (
       <div className="player-screen splash">
         <div className="join-form">
-          <h1>⚜ Руан</h1>
-          <div className="waiting center">{g.closed ? 'Рассказчик закрыл комнату.' : g.stage || 'Подключаемся…'}</div>
+          <h1>{g.pub?.meta?.brand ?? `✦ ${APP_NAME}`}</h1>
+          <div className="waiting center">{g.closed ? 'Мастер закрыл комнату.' : g.stage || 'Подключаемся…'}</div>
           {g.error && !g.closed && <div className="alert small">{g.error}</div>}
           <div className="muted small center">Комната {g.code}</div>
           <button onClick={() => leave()}>Ввести другой код</button>
@@ -65,7 +66,7 @@ export function JoinApp() {
       <div className="player-screen splash">
         <div className="join-form">
           <h1>Кто вы?</h1>
-          {!seats.length && <div className="waiting center">Рассказчик ещё не открыл партию…</div>}
+          {!seats.length && <div className="waiting center">Мастер ещё не открыл партию…</div>}
           {seats.map((s) => {
             const mine = s.holder === g.clientId;
             const taken = !!s.holder && !mine && s.online;
@@ -94,7 +95,7 @@ export function JoinApp() {
   const me = seats.find((s) => s.id === seat)!;
   const bar = (
     <>
-      {(g.hostSilent || g.stage) && <div className="net-banner">{g.stage || 'Рассказчик не отвечает… ждём.'}</div>}
+      {(g.hostSilent || g.stage) && <div className="net-banner">{g.stage || 'Мастер не отвечает… ждём.'}</div>}
       <div className="guest-bar">
         <span>
           {me.name} · комната {g.code}
@@ -111,7 +112,7 @@ export function JoinApp() {
       <div className="player-screen">
         {bar}
         <div className="player-stage">
-          <div className="waiting">Ждём Рассказчика…</div>
+          <div className="waiting">Ждём Мастера…</div>
         </div>
       </div>
     );

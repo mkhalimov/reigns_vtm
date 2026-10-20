@@ -1,16 +1,22 @@
 // Импорт колоды из JSON с понятными сообщениями об ошибках (ТЗ 9.1).
 import {
   COMPARE_OPS,
-  CRISIS_TRACKS,
-  DECKS,
-  TRACKS,
   type Card,
   type Condition,
   type DeckData,
+  type DeckDef,
   type Effect,
   type Option,
+  type PopulationDef,
   type Scene,
+  type TrackDef,
 } from './types';
+import { autoDecks, LEGACY_DECKS, LEGACY_POPULATION, LEGACY_TRACKS } from './scenario';
+
+/** Известные шкалы проверяемого сценария (заполняется в начале validateDeck). */
+let knownTracks: string[] = [];
+let crisisTrackIds: string[] = [];
+const ROLES = ['routine', 'line', 'mirror', 'omen', 'event', 'other'];
 
 export interface DeckParseResult {
   deck: DeckData | null;
@@ -73,8 +79,8 @@ function checkCondition(c: unknown, where: string, errors: string[]): void {
     return;
   }
   if ('track' in c || 'timer' in c) {
-    if ('track' in c && !([...TRACKS, 'population'] as unknown[]).includes(c.track))
-      errors.push(`${where}: неизвестная шкала "${String(c.track)}" (ожидается: ${TRACKS.join(', ')}, population)`);
+    if ('track' in c && !([...knownTracks, 'population'] as unknown[]).includes(c.track))
+      errors.push(`${where}: неизвестная шкала "${String(c.track)}" (ожидается: ${knownTracks.join(', ')}, population)`);
     if ('timer' in c && (!isStr(c.timer) || !c.timer)) errors.push(`${where}: timer должен быть строкой`);
     if (!COMPARE_OPS.includes(c.op as never))
       errors.push(`${where}: неизвестный оператор "${String(c.op)}" (ожидается: ${COMPARE_OPS.join(' ')})`);
@@ -91,8 +97,8 @@ function checkEffect(e: unknown, where: string, errors: string[]): void {
   }
   switch (e.type) {
     case 'track':
-      if (!(TRACKS as readonly unknown[]).includes(e.track))
-        errors.push(`${where}: неизвестная шкала "${String(e.track)}" (ожидается: ${TRACKS.join(', ')})`);
+      if (!(knownTracks as unknown[]).includes(e.track))
+        errors.push(`${where}: неизвестная шкала "${String(e.track)}" (ожидается: ${knownTracks.join(', ')})`);
       if (!isNum(e.delta)) errors.push(`${where}: delta должно быть числом`);
       break;
     case 'population':
@@ -161,6 +167,60 @@ export function validateDeck(raw: unknown): DeckParseResult {
   if (!Array.isArray(scenes)) errors.push('Поле scenes должно быть массивом');
   if (errors.length) return { deck: null, errors, warnings };
 
+  // ---- шкалы, колоды, население ----
+  // Файлы без поля tracks — старый формат: подставляются прежние шкалы и колоды.
+  const legacy = data.tracks === undefined;
+  let tracks: TrackDef[] = LEGACY_TRACKS;
+  if (!legacy) {
+    if (!Array.isArray(data.tracks) || !data.tracks.length) errors.push('tracks должен быть непустым массивом шкал {id, name}');
+    else {
+      const seen = new Set<string>();
+      data.tracks.forEach((t, i) => {
+        const w = `Шкала #${i + 1}`;
+        if (!isObj(t) || !isStr(t.id) || !t.id || !isStr(t.name) || !t.name) return void errors.push(`${w}: нужны поля id и name`);
+        if (t.id === 'population') errors.push(`${w}: id "population" зарезервирован`);
+        if (seen.has(t.id)) errors.push(`${w} «${t.id}»: id повторяется`);
+        seen.add(t.id);
+        if (t.start !== undefined && !(isNum(t.start) && t.start >= 0 && t.start <= 10)) errors.push(`${w} «${t.id}»: start должен быть числом 0–10`);
+        if (t.crisis !== undefined && typeof t.crisis !== 'boolean') errors.push(`${w} «${t.id}»: crisis должен быть true/false`);
+        for (const f of ['icon', 'description'] as const) if (t[f] !== undefined && !isStr(t[f])) errors.push(`${w} «${t.id}»: ${f} должен быть строкой`);
+      });
+      tracks = data.tracks as TrackDef[];
+    }
+  }
+  knownTracks = tracks.map((t) => t.id);
+  crisisTrackIds = tracks.filter((t) => t.crisis !== false).map((t) => t.id);
+
+  let decks: DeckDef[] = legacy && data.decks === undefined ? LEGACY_DECKS : [];
+  if (data.decks !== undefined) {
+    if (!Array.isArray(data.decks)) errors.push('decks должен быть массивом колод {id, name}');
+    else
+      data.decks.forEach((d, i) => {
+        const w = `Колода #${i + 1}`;
+        if (!isObj(d) || !isStr(d.id) || !d.id || !isStr(d.name) || !d.name) return void errors.push(`${w}: нужны поля id и name`);
+        if (d.role !== undefined && !ROLES.includes(d.role as string)) errors.push(`${w} «${d.id}»: role — одно из ${ROLES.join(', ')}`);
+        if (d.timer !== undefined && d.timer !== null && !(isNum(d.timer) && d.timer > 0)) errors.push(`${w} «${d.id}»: timer — число секунд или null`);
+        decks.push(d as unknown as DeckDef);
+      });
+  }
+  const declaredDecks = data.decks !== undefined;
+
+  let population: PopulationDef | undefined = legacy ? LEGACY_POPULATION : undefined;
+  if (data.population !== undefined) {
+    const p = data.population;
+    if (!isObj(p) || !isStr(p.capacityTrack)) errors.push('population: нужно поле capacityTrack (id шкалы ёмкости)');
+    else {
+      if (!knownTracks.includes(p.capacityTrack)) errors.push(`population.capacityTrack: неизвестная шкала "${p.capacityTrack}"`);
+      if (p.overflow !== undefined) {
+        const o = p.overflow;
+        if (!isObj(o) || !isStr(o.track) || !isNum(o.delta)) errors.push('population.overflow: нужны поля track и delta');
+        else if (!knownTracks.includes(o.track)) errors.push(`population.overflow.track: неизвестная шкала "${o.track}"`);
+      }
+      population = p as unknown as PopulationDef;
+    }
+  }
+  if (errors.length) return { deck: null, errors, warnings };
+
   const cardIds = new Set<string>();
   const sceneIds = new Set<string>();
 
@@ -181,7 +241,7 @@ export function validateDeck(raw: unknown): DeckParseResult {
     if (s.crisisOf !== undefined) {
       if (!isObj(s.crisisOf)) errors.push(`${w}: crisisOf должен быть объектом {track, edge}`);
       else {
-        if (!(CRISIS_TRACKS as readonly unknown[]).includes(s.crisisOf.track))
+        if (!(crisisTrackIds as unknown[]).includes(s.crisisOf.track))
           errors.push(`${w}: crisisOf.track — неизвестная шкала "${String(s.crisisOf.track)}"`);
         if (s.crisisOf.edge !== 'low' && s.crisisOf.edge !== 'high')
           errors.push(`${w}: crisisOf.edge должен быть "low" или "high"`);
@@ -196,12 +256,14 @@ export function validateDeck(raw: unknown): DeckParseResult {
     else if (cardIds.has(c.id)) errors.push(`${w}: id повторяется`);
     else cardIds.add(c.id);
     if (!isStr(c.title) || !c.title) errors.push(`${w}: нет title`);
-    if (!(DECKS as readonly unknown[]).includes(c.deck))
-      errors.push(`${w}: неизвестная колода "${String(c.deck)}" (ожидается: ${DECKS.join(', ')})`);
+    if (!isStr(c.deck) || !c.deck) errors.push(`${w}: нет колоды (deck)`);
+    else if (declaredDecks && !decks.some((d) => d.id === c.deck))
+      errors.push(`${w}: неизвестная колода "${String(c.deck)}" (ожидается: ${decks.map((d) => d.id).join(', ')})`);
     if (!isStr(c.face) || !c.face.trim()) errors.push(`${w}: нет текста лица (face)`);
     // Без обоих вариантов — карта «без выбора» (знамение, напоминание); ровно один вариант — ошибка.
     const noOptions = c.left === undefined && c.right === undefined;
-    if (noOptions && c.deck !== 'omen') warnings.push(`${w}: карта без вариантов — будет «принять к сведению»`);
+    const role = decks.find((d) => d.id === c.deck)?.role ?? (c.deck === 'omen' ? 'omen' : 'line');
+    if (noOptions && role !== 'omen' && !c.event) warnings.push(`${w}: карта без вариантов — будет «принять к сведению»`);
     for (const side of ['left', 'right'] as const) {
       if (c[side] === undefined) {
         if (!noOptions) errors.push(`${w}: нет варианта ${side === 'left' ? 'left ◀' : 'right ▶'}`);
@@ -247,7 +309,18 @@ export function validateDeck(raw: unknown): DeckParseResult {
   if (errors.length) return { deck: null, errors, warnings };
 
   // Перекрёстные ссылки
-  const deck = normalizeDeck(data as unknown as DeckData);
+  const allDecks = autoDecks(
+    (cards as { deck?: unknown }[]).map((c) => String(c.deck)),
+    decks,
+  );
+  const deck = normalizeDeck({ ...(data as unknown as DeckData), tracks, decks: allDecks, population });
+  if (deck.characters) {
+    const ids = new Set(deck.characters.map((c) => c.id));
+    deck.cards.forEach((c, i) => {
+      for (const who of [c.owner, ...(c.contested?.between ?? []), c.contested?.tiebreaker])
+        if (who && !ids.has(who)) errors.push(`${cardName(c, i)}: неизвестный персонаж "${who}" (ожидается: ${[...ids].join(', ')})`);
+    });
+  }
   const refScene = (id: string | undefined, where: string) => {
     if (id && !sceneIds.has(id)) errors.push(`${where}: ссылка на несуществующую сцену "${id}"`);
   };
@@ -269,7 +342,7 @@ export function validateDeck(raw: unknown): DeckParseResult {
   });
   deck.scenes.forEach((s, i) => s.outcomes.forEach((o, j) => refOption(o, `${sceneName(s, i)}, исход ${j + 1}`)));
 
-  for (const t of CRISIS_TRACKS)
+  for (const t of crisisTrackIds)
     for (const edge of ['low', 'high'] as const)
       if (!deck.scenes.some((s) => s.crisisOf?.track === t && s.crisisOf.edge === edge))
         warnings.push(`Нет кризисной сцены для шкалы ${t} (${edge === 'low' ? '0' : '10'}) — будет использована заглушка`);
@@ -284,12 +357,25 @@ function normalizeOption(o: Option | undefined): Option | undefined {
 }
 
 export function normalizeDeck(d: DeckData): DeckData {
+  // старые поля start/trackInfo переносятся в описание шкал и населения
+  const tracks = (d.tracks ?? LEGACY_TRACKS).map((t) => ({
+    ...t,
+    start: t.start ?? d.start?.tracks?.[t.id],
+    description: t.description ?? d.trackInfo?.[t.id],
+  }));
+  const population = d.population
+    ? { ...d.population, start: d.population.start ?? d.start?.population }
+    : undefined;
   return {
     title: d.title,
+    meta: d.meta,
+    calendar: d.calendar,
     characters: d.characters,
-    start: d.start,
-    trackInfo: d.trackInfo,
+    tracks,
+    decks: d.decks ?? LEGACY_DECKS,
+    population,
     gmReference: d.gmReference,
+    eventRules: d.eventRules,
     plotTimers: d.plotTimers ?? [],
     scenes: (d.scenes ?? []).map((s: Scene) => ({
       ...s,

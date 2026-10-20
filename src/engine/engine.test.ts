@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import demo from '../../data/demo-deck.json';
+import demo from './fixtures/demo-deck.json';
 import type { Card, DeckData, GameState, Scene } from './types';
 import { parseDeckText, validateDeck } from './validate';
+import { LEGACY_DECKS } from './scenario';
+import example from '../../scenarios/example.json';
 import {
   acknowledge,
   choose,
@@ -98,7 +100,8 @@ describe('импорт колоды (9.1)', () => {
   });
 
   it('ошибка указывает на карту', () => {
-    const raw = bigDeck() as { cards: Record<string, unknown>[] };
+    const raw = bigDeck() as { cards: Record<string, unknown>[]; decks?: unknown };
+    raw.decks = LEGACY_DECKS; // колоды объявлены явно — неизвестная колода становится ошибкой
     raw.cards[6].deck = 'nigth';
     delete raw.cards[12].left;
     (raw.cards[20] as { left: { effects: unknown[] } }).left.effects.push({ type: 'track', track: 'mascarade', delta: 1 });
@@ -407,5 +410,55 @@ describe('сохранение (9.6) и журнал (9.7)', () => {
     expect(pl).not.toContain('open_gates');
     expect(pl).not.toContain('Детали для GM');
     expect(pl).not.toContain('Правка');
+  });
+});
+
+describe('сценарий задаёт шкалы, колоды и оформление', () => {
+  it('пример-шаблон валиден и играется', () => {
+    const r = validateDeck(example);
+    expect(r.errors).toEqual([]);
+    const d = r.deck!;
+    expect(d.tracks.map((t) => t.id)).toEqual(['church', 'people', 'army', 'treasury', 'granary']);
+    const ctx: Ctx = { deck: d, rng: seq(0) };
+    let s = newGame(d);
+    expect(s.tracks).toEqual({ church: 5, people: 5, army: 5, treasury: 5, granary: 6 });
+    expect(s.population).toBe(2);
+    s = startInterlude(setDraftQueue(s, ['d03_refugees', 'd01_tax']), ctx);
+    const pub = publicView(s, d);
+    expect(pub.meta).toEqual({ brand: '👑 Королевство', splash: 'Двор затих в ожидании…', round: 'Год' });
+    expect(pub.card?.deckName).toBe('Будни');
+    expect(pub.trackDefs.find((t) => t.id === 'granary')?.crisis).toBe(false);
+    // принять беженцев: население 5 > амбаров 6? нет; после второй карты — конец раунда без штрафа
+    s = choose(s, ctx, 'left');
+    expect(s.population).toBe(5);
+    s = choose(s, ctx, 'left');
+    expect(s.tracks.people).toBe(4); // −2 от податей +1 от беженцев
+  });
+
+  it('штраф населения и кризис по шкале сценария', () => {
+    const d = validateDeck(example).deck!;
+    const ctx: Ctx = { deck: d, rng: seq(0) };
+    let s = newGame(d);
+    s.population = 9; // больше, чем амбаров (6)
+    s.tracks.treasury = 1;
+    s = startInterlude(setDraftQueue(s, ['f01_bishop']), ctx);
+    s = choose(s, ctx, 'left'); // казна −1 → 0 → кризис «Банкротство»
+    const v = currentView(s, d);
+    expect(v.kind).toBe('scene');
+    if (v.kind === 'scene') expect(v.scene?.title).toBe('Банкротство');
+  });
+
+  it('старый файл без tracks получает прежние шкалы и колоды', () => {
+    const d = validateDeck({ cards: [{ id: 'a', title: 'A', deck: 'routine', face: 'f', left: { label: 'l', effects: [{ type: 'track', track: 'masquerade', delta: 1 }] }, right: { label: 'r', effects: [] } }] }).deck!;
+    expect(d.tracks.map((t) => t.id)).toContain('masquerade');
+    expect(d.population?.capacityTrack).toBe('capacity');
+  });
+
+  it('новый сценарий: неизвестная шкала — ошибка', () => {
+    const r = validateDeck({
+      tracks: [{ id: 'gold', name: 'Золото' }],
+      cards: [{ id: 'a', title: 'A', deck: 'x', face: 'f', left: { label: 'l', effects: [{ type: 'track', track: 'masquerade', delta: 1 }] }, right: { label: 'r', effects: [] } }],
+    });
+    expect(r.errors.join('\n')).toContain('неизвестная шкала "masquerade" (ожидается: gold)');
   });
 });

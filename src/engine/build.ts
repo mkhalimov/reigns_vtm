@@ -2,8 +2,8 @@
 import type { Card, DeckData, GameState } from './types';
 import { duePending, type Rng } from './game';
 import { isAvailable } from './rules';
-
-const LINE_DECKS = new Set(['deruan', 'night', 'gates', 'court']);
+import { decksWithRole } from './scenario';
+import type { DeckRole } from './types';
 
 function shuffle<T>(arr: T[], rng: Rng): T[] {
   const a = [...arr];
@@ -43,16 +43,17 @@ export function autobuild(s: GameState, deck: DeckData, rng: Rng = Math.random):
     if (got.length < count) notes.push(`${label}: доступно только ${got.length} из ${count}`);
     return got;
   };
-  const byDeck = (d: string) =>
+  const ofRole = (r: DeckRole) => new Set(decksWithRole(deck, r));
+  const byDeck = (r: DeckRole) =>
     shuffle(
-      pool.filter((c) => c.deck === d),
+      pool.filter((c) => ofRole(r).has(c.deck) && !c.event),
       rng,
     ).sort((a, b) => linePriority(b, n) - linePriority(a, n));
 
   const routineCards = take(byDeck('routine'), routine, 'Рутина');
   const lineCards = take(
     shuffle(
-      pool.filter((c) => LINE_DECKS.has(c.deck)),
+      pool.filter((c) => ofRole('line').has(c.deck) && !c.event),
       rng,
     ).sort((a, b) => linePriority(b, n) - linePriority(a, n)),
     lines,

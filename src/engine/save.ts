@@ -24,7 +24,7 @@ export function parseSave(text: string): { save: SaveFile | null; error?: string
     return { save: null, error: describeJsonError(text, e) };
   }
   const r = raw as Partial<SaveFile>;
-  if (!r || r.format !== 'rouen-save') return { save: null, error: 'Это не файл сохранения «Руана» (нет format: "rouen-save").' };
+  if (!r || r.format !== 'rouen-save') return { save: null, error: 'Это не файл сохранения (нет format: "rouen-save").' };
   const dv = validateDeck(r.deck);
   if (!dv.deck) return { save: null, error: `Колода в сохранении повреждена:\n${dv.errors.join('\n')}` };
   if (!r.game || typeof r.game !== 'object' || !r.game.tracks || !r.game.interlude)

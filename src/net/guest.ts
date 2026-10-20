@@ -20,7 +20,7 @@ export interface GuestState {
   journal: PublicJournalEntry[];
   room: RoomInfo | null;
   timer: TimerView;
-  /** Рассказчик давно молчит. */
+  /** Мастер давно молчит. */
   hostSilent: boolean;
   closed: boolean;
   /** Секретная карта, пришедшая лично этому устройству. */
@@ -169,7 +169,7 @@ function tryBroker(my: number, list: string[], idx: number, attempt: number): vo
     set({
       status: 'searching',
       stage: why,
-      error: cycled ? 'Комната не найдена. Проверьте код и что Рассказчик открыл комнату. Продолжаем искать…' : null,
+      error: cycled ? 'Комната не найдена. Проверьте код и что Мастер открыл комнату. Продолжаем искать…' : null,
     });
     setTimeout(() => tryBroker(my, list, idx + 1, n), cycled ? 3000 : 0);
   };

@@ -1,9 +1,7 @@
 // Игровой движок: чистые функции «состояние → новое состояние» (ТЗ, раздел 5).
 import {
-  CRISIS_TRACKS,
   DEFAULT_SETTINGS,
   TRACK_START,
-  TRACKS,
   type Card,
   type DeckData,
   type Effect,
@@ -18,7 +16,8 @@ import {
   type Side,
   type TrackId,
 } from './types';
-import { availableIds, clampTrack, describeEffect, isAvailable, TRACK_LABELS } from './rules';
+import { availableIds, clampTrack, describeEffect, isAvailable } from './rules';
+import { crisisTracks, decksWithRole, roundName, trackName } from './scenario';
 import type { Deciders } from './votes';
 
 export type Rng = () => number;
@@ -58,11 +57,11 @@ function emptyInterlude(number: number, s: GameState, deck: DeckData): Interlude
 }
 
 export function newGame(deck: DeckData, settings: Partial<Settings> = {}): GameState {
-  const tracks = Object.fromEntries(TRACKS.map((t) => [t, clampTrack(deck.start?.tracks?.[t] ?? TRACK_START)])) as Record<TrackId, number>;
+  const tracks = Object.fromEntries(deck.tracks.map((t) => [t.id, clampTrack(t.start ?? TRACK_START)])) as Record<TrackId, number>;
   const s: GameState = {
     version: 1,
     tracks,
-    population: Math.max(0, deck.start?.population ?? 0),
+    population: Math.max(0, deck.population?.start ?? 0),
     timers: Object.fromEntries((deck.plotTimers ?? []).map((t) => [t.id, 0])),
     flags: [],
     played: [],
@@ -133,10 +132,10 @@ export function fallbackScene(r: SceneRequest, deck: DeckData): Scene {
     const high = r.edge === 'high';
     return {
       id: `crisis_${r.track}_${r.edge}`,
-      title: `Кризис: ${TRACK_LABELS[r.track]} ${high ? '— 10' : '— 0'}`,
+      title: `Кризис: ${trackName(deck, r.track)} ${high ? '— 10' : '— 0'}`,
       playerText: high
-        ? `${TRACK_LABELS[r.track]} выходит из-под контроля. Это придётся разыграть лично.`
-        : `${TRACK_LABELS[r.track]} рушится. Это придётся разыграть лично.`,
+        ? `${trackName(deck, r.track)} выходит из-под контроля. Это придётся разыграть лично.`
+        : `${trackName(deck, r.track)} рушится. Это придётся разыграть лично.`,
       outcomes: [],
     };
   }
@@ -156,7 +155,7 @@ export function fallbackScene(r: SceneRequest, deck: DeckData): Scene {
 export const characterName = (deck: DeckData, id: string | undefined) =>
   id ? (deck.characters?.find((c) => c.id === id)?.name ?? id) : undefined;
 
-/** Кто решает карту (id мест = id персонажей); null — вся котерия. */
+/** Кто решает карту (id мест = id персонажей); null — все игроки. */
 export function decidersOf(card: Card): Deciders | null {
   if (card.contested) return { deciders: [...card.contested.between], tiebreaker: card.contested.tiebreaker };
   if (card.owner) return { deciders: [card.owner] };
@@ -197,7 +196,8 @@ export function personalOutcomes(card: Card): Option[] {
   const maps = opts.map(perTrack);
   const bestPositive: Effect[] = [];
   const allNegative: Effect[] = [];
-  for (const t of TRACKS) {
+  const ids = [...new Set(maps.flatMap((m) => [...m.keys()]))];
+  for (const t of ids) {
     const best = Math.max(0, ...maps.map((m) => m.get(t) ?? 0));
     if (best > 0) bestPositive.push({ type: 'track', track: t, delta: best });
     const neg = maps.reduce((sum, m) => sum + Math.min(0, m.get(t) ?? 0), 0);
@@ -296,12 +296,12 @@ function advanceTime(s: GameState, ctx: Ctx): void {
 }
 
 function queueCrises(s: GameState, ctx: Ctx): void {
-  for (const t of CRISIS_TRACKS) {
+  for (const t of crisisTracks(ctx.deck)) {
     const v = s.tracks[t];
     if (v !== 0 && v !== 10) continue;
     if (s.sceneQueue.some((r) => r.kind === 'crisis' && r.track === t)) continue;
     const edge = v === 0 ? 'low' : 'high';
-    const scene = ctx.deck.scenes.find((x) => x.crisisOf?.track === t && x.crisisOf.edge === edge);
+    const scene = ctx.deck.scenes.find((x) => x.crisisOf?.track === t && x.crisisOf?.edge === edge);
     s.sceneQueue.push({
       kind: 'crisis',
       id: `r${s.nextId++}`,
@@ -310,7 +310,7 @@ function queueCrises(s: GameState, ctx: Ctx): void {
       sceneId: scene?.id,
       rollback: edge === 'low' ? s.settings.crisisRollbackLow : s.settings.crisisRollbackHigh,
     });
-    log(s, ctx, 'crisis', `Кризис: ${TRACK_LABELS[t]} ${edge === 'low' ? 'упала до 0' : 'достигла 10'}.`, [
+    log(s, ctx, 'crisis', `Кризис: ${trackName(ctx.deck, t)} ${edge === 'low' ? 'упала до 0' : 'достигла 10'}.`, [
       scene ? `Сцена: ${scene.title} (${scene.id})` : 'Кризисная сцена не найдена — заглушка',
     ]);
   }
@@ -318,7 +318,7 @@ function queueCrises(s: GameState, ctx: Ctx): void {
 
 function trackDeltas(before: Record<TrackId, number>, after: Record<TrackId, number>) {
   const d: Partial<Record<TrackId, number>> = {};
-  for (const t of TRACKS) if (after[t] !== before[t]) d[t] = after[t] - before[t];
+  for (const t of Object.keys(after)) if (after[t] !== before[t]) d[t] = after[t] - (before[t] ?? 0);
   return d;
 }
 
@@ -339,16 +339,25 @@ function settle(s: GameState, ctx: Ctx): void {
   if (!i.endProcessed) {
     i.endProcessed = true;
     i.status = 'ending';
-    if (s.population > s.tracks.capacity) {
+    const pop = ctx.deck.population;
+    const cap = pop ? s.tracks[pop.capacityTrack] : undefined;
+    if (pop && cap !== undefined && s.population > cap) {
       const before = tracksSnapshot(s);
-      s.tracks.masquerade = clampTrack(s.tracks.masquerade - 1);
-      const gm = [`Население ${s.population} > Ёмкость ${s.tracks.capacity}`, 'Маскарад −1'];
-      const conflict = pickCapacityConflict(s, ctx);
-      if (conflict) {
-        s.pending.push({ card: conflict.id, dueInterlude: i.number + 1, source: 'capacity' });
-        gm.push(`➕ карта-конфликт «${conflict.title}» (${conflict.id}) в следующую интерлюдию`);
-      } else gm.push('Нет подходящей карты-конфликта в колоде night (тег capacity_conflict)');
-      log(s, ctx, 'system', 'Город не может прокормить всех сородичей домена. Маскарад трещит.', gm);
+      const popName = trackName(ctx.deck, 'population');
+      const gm = [`${popName} ${s.population} > ${trackName(ctx.deck, pop.capacityTrack)} ${cap}`];
+      const o = pop.overflow;
+      if (o) {
+        s.tracks[o.track] = clampTrack((s.tracks[o.track] ?? 0) + o.delta);
+        gm.push(`${trackName(ctx.deck, o.track)} ${o.delta > 0 ? '+' : ''}${o.delta}`);
+        if (o.conflictDeck || o.conflictTag) {
+          const conflict = pickCapacityConflict(s, ctx);
+          if (conflict) {
+            s.pending.push({ card: conflict.id, dueInterlude: i.number + 1, source: 'capacity' });
+            gm.push(`➕ карта-конфликт «${conflict.title}» (${conflict.id}) в следующий раунд`);
+          } else gm.push(`Нет подходящей карты-конфликта (колода ${o.conflictDeck ?? 'любая'}, тег ${o.conflictTag ?? '—'})`);
+        }
+      }
+      log(s, ctx, 'system', o?.message ?? `${popName} больше, чем ${trackName(ctx.deck, pop.capacityTrack).toLowerCase()}.`, gm);
       setReveal(s, before);
       queueCrises(s, ctx);
       if (s.sceneQueue.length) return;
@@ -356,7 +365,7 @@ function settle(s: GameState, ctx: Ctx): void {
   }
   revertTemporary(s, ctx);
   i.status = 'summary';
-  log(s, ctx, 'interlude', `Интерлюдия ${i.number} завершена.`, []);
+  log(s, ctx, 'interlude', `${roundName(ctx.deck)} ${i.number}: конец.`, []);
 }
 
 /** Эффекты «на интерлюдию» откатываются в её конце. */
@@ -365,18 +374,24 @@ function revertTemporary(s: GameState, ctx: Ctx): void {
   const gm: string[] = [];
   for (const t of s.tempEffects) {
     s.tracks[t.track] = clampTrack(s.tracks[t.track] - t.delta);
-    gm.push(`${TRACK_LABELS[t.track]} ${t.delta > 0 ? '−' : '+'}${Math.abs(t.delta)} (${t.source})`);
+    gm.push(`${trackName(ctx.deck, t.track)} ${t.delta > 0 ? '−' : '+'}${Math.abs(t.delta)} (${t.source})`);
   }
   s.tempEffects = [];
-  log(s, ctx, 'system', null, ['Временные эффекты интерлюдии закончились:', ...gm]);
+  log(s, ctx, 'system', null, ['Временные эффекты раунда закончились:', ...gm]);
 }
 
 function pickCapacityConflict(s: GameState, ctx: Ctx): Card | undefined {
   const inPlay = new Set([...s.pending.map((p) => p.card), ...s.interlude.queue]);
+  const o = ctx.deck.population?.overflow;
   const cands = ctx.deck.cards.filter(
-    (c) => c.deck === 'night' && !inPlay.has(c.id) && !s.removed.includes(c.id) && !(c.oneShot !== false && s.played.includes(c.id)),
+    (c) =>
+      (!o?.conflictDeck || c.deck === o.conflictDeck) &&
+      !c.event &&
+      !inPlay.has(c.id) &&
+      !s.removed.includes(c.id) &&
+      !(c.oneShot !== false && s.played.includes(c.id)),
   );
-  const tagged = cands.filter((c) => c.tags?.some((t) => t === 'capacity_conflict' || t === 'capacity'));
+  const tagged = o?.conflictTag ? cands.filter((c) => c.tags?.includes(o.conflictTag!)) : [];
   const list = tagged.length ? tagged : cands.filter((c) => isAvailable(c, s));
   return list.length ? pick(list, rngOf(ctx)) : undefined;
 }
@@ -421,7 +436,7 @@ export function startInterlude(state: GameState, ctx: Ctx): GameState {
   s.escalationAllowed = false;
   s.awaitingGm = false;
   s.reveal = null;
-  log(s, ctx, 'interlude', `Интерлюдия ${i.number} началась.`, [
+  log(s, ctx, 'interlude', `${roundName(ctx.deck)} ${i.number}: начало.`, [
     `Очередь: ${i.queue.join(', ')}`,
     ...(due.length ? [`Обязательные отложенные: ${due.map((p) => p.card).join(', ')}`] : []),
   ]);
@@ -498,16 +513,18 @@ export function escalate(state: GameState, ctx: Ctx): GameState {
   finishCard(s, ctx, card, { cardId: card.id, title: card.title, decision: 'Разбираемся лично', side: 'escalation' });
   // Цена времени: +1 карта рутины в текущую интерлюдию
   const inQueue = new Set(s.interlude.queue);
-  const routine = ctx.deck.cards.filter((c) => c.deck === 'routine' && isAvailable(c, s) && !inQueue.has(c.id));
-  const fallback = ctx.deck.cards.filter((c) => c.deck === 'routine' && !s.removed.includes(c.id) && !inQueue.has(c.id));
+  const routineDecks = decksWithRole(ctx.deck, 'routine');
+  const routine = ctx.deck.cards.filter((c) => routineDecks.includes(c.deck) && isAvailable(c, s) && !inQueue.has(c.id));
+  const fallback = ctx.deck.cards.filter((c) => routineDecks.includes(c.deck) && !s.removed.includes(c.id) && !inQueue.has(c.id));
   const extra = routine.length ? pick(routine, rng) : fallback.length ? pick(fallback, rng) : undefined;
   if (extra) s.interlude.queue.push(extra.id);
-  const penaltyTrack = pick([...CRISIS_TRACKS], rng);
+  const ct = crisisTracks(ctx.deck);
+  const penaltyTrack = ct.length ? pick(ct, rng) : (ctx.deck.tracks[0]?.id ?? '');
   s.sceneQueue.push({ kind: 'escalation', id: `r${s.nextId++}`, sceneId: typeof card.escalation === 'string' ? card.escalation : undefined, cardId: card.id, penaltyTrack });
   log(s, ctx, 'escalation', `${publicTitle(card, ctx.deck)} — разбираемся лично.`, [
     `⚡ ${typeof card.escalation === 'string' ? card.escalation : 'сцена без заготовки'}`,
     extra ? `Цена времени: ➕ рутина «${extra.title}» (${extra.id})` : 'Цена времени: нет доступной карты рутины',
-    `Предложенная шкала для −1: ${TRACK_LABELS[penaltyTrack]}`,
+    `Предложенная шкала для −1: ${trackName(ctx.deck, penaltyTrack)}`,
   ]);
   s.reveal = null;
   flushDuePendingCards(s);
@@ -535,11 +552,11 @@ export function resolveScene(state: GameState, ctx: Ctx, input: ResolveInput): G
   const { gm } = applyEffects(s, opt.effects, ctx, scene.id);
   if (req.kind === 'escalation') {
     s.tracks[req.penaltyTrack] = clampTrack(s.tracks[req.penaltyTrack] - 1);
-    gm.push(`Цена времени: ${TRACK_LABELS[req.penaltyTrack]} −1`);
+    gm.push(`Цена времени: ${trackName(ctx.deck, req.penaltyTrack)} −1`);
   }
   if (req.kind === 'crisis') {
     s.tracks[req.track] = clampTrack(req.rollback);
-    gm.push(`Откат: ${TRACK_LABELS[req.track]} → ${s.tracks[req.track]}`);
+    gm.push(`Откат: ${trackName(ctx.deck, req.track)} → ${s.tracks[req.track]}`);
   }
   const srcCard = req.kind !== 'crisis' && req.cardId ? cardById(ctx.deck, req.cardId) : undefined;
   const pubLine = srcCard?.secret ? `${publicTitle(srcCard, ctx.deck)}: личное дело решено.` : `Сцена «${scene.title}»: ${opt.label}`;
@@ -621,7 +638,7 @@ export function handleTimeout(state: GameState, ctx: Ctx): GameState {
   }
   const s = clone(state);
   s.awaitingGm = true;
-  log(s, ctx, 'timeout', 'Время вышло — ждём решения Рассказчика.', []);
+  log(s, ctx, 'timeout', 'Время вышло — ждём решения Мастера.', []);
   return s;
 }
 
@@ -634,7 +651,7 @@ export function setTrack(state: GameState, ctx: Ctx, track: TrackId | 'populatio
   else s.tracks[track] = clampTrack(value);
   const now = track === 'population' ? s.population : s.tracks[track];
   if (now === old) return state;
-  log(s, ctx, 'manual', null, [`Правка: ${TRACK_LABELS[track]} ${old} → ${now}`]);
+  log(s, ctx, 'manual', null, [`Правка: ${trackName(ctx.deck, track)} ${old} → ${now}`]);
   return s;
 }
 

@@ -1,10 +1,10 @@
 // Единый стор партии: колода + состояние + история для undo. Автосохранение после каждого действия.
 import { useSyncExternalStore } from 'react';
-import rouenDeck from '../data/rouen-deck.json';
 import type { DeckData, GameState } from './engine/types';
 import { migrateState, newGame, type Ctx } from './engine/game';
 import { validateDeck } from './engine/validate';
 import { makeSave, type SaveFile } from './engine/save';
+import { EMPTY_DECK } from './engine/scenario';
 import { loadValue, saveValue } from './persist';
 
 const HISTORY_LIMIT = 200;
@@ -21,13 +21,11 @@ export interface AppState {
   lastSavedAt: string | null;
 }
 
-/** Встроенная колода по умолчанию: data/rouen-deck.json. */
-export const builtInDeck = validateDeck(rouenDeck).deck!;
-
+// Сценарий не встроен в приложение: мастер загружает свой JSON (или пример).
 let state: AppState = {
   loaded: false,
-  deck: builtInDeck,
-  game: newGame(builtInDeck),
+  deck: EMPTY_DECK,
+  game: newGame(EMPTY_DECK),
   history: [],
   view: 'gm',
   lastSavedAt: null,

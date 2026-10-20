@@ -1,6 +1,6 @@
 {
-  "name": "Руан — управление доменом",
-  "short_name": "Руан",
+  "name": "Мастер сценариев",
+  "short_name": "Мастер",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#0d0b0e",

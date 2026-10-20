@@ -1,0 +1,213 @@
+{
+  "title": "Королевство (пример)",
+  "meta": {
+    "brand": "👑 Королевство",
+    "splash": "Двор затих в ожидании…",
+    "round": "Год"
+  },
+  "calendar": { "seasons": ["Зима", "Весна", "Лето", "Осень"], "weeksPerSeason": 13 },
+  "characters": [
+    { "id": "king", "name": "Король" },
+    { "id": "chancellor", "name": "Канцлер" },
+    { "id": "marshal", "name": "Маршал" }
+  ],
+  "tracks": [
+    { "id": "church", "name": "Церковь", "icon": "⛪", "description": "Благосклонность духовенства.\n\n**0** — анафема и бунт священников. **10** — церковь правит вместо короны." },
+    { "id": "people", "name": "Народ", "icon": "🧑‍🌾", "description": "Любовь подданных.\n\n**0** — восстание. **10** — толпа требует невозможного." },
+    { "id": "army", "name": "Армия", "icon": "⚔", "description": "Сила и верность войска.\n\n**0** — страна беззащитна. **10** — генералы устраивают переворот." },
+    { "id": "treasury", "name": "Казна", "icon": "💰", "description": "Деньги короны.\n\n**0** — банкротство. **10** — золото разлагает двор." },
+    { "id": "granary", "name": "Амбары", "icon": "🌾", "start": 6, "crisis": false, "description": "Сколько ртов королевство может прокормить. Кризисов нет, но если **беженцев** больше, чем запасов, народ ропщет." }
+  ],
+  "population": {
+    "label": "Беженцы",
+    "start": 2,
+    "capacityTrack": "granary",
+    "overflow": { "track": "people", "delta": -1, "message": "Хлеба не хватает на всех — в деревнях ропщут.", "conflictTag": "hunger" }
+  },
+  "decks": [
+    { "id": "daily", "name": "Будни", "icon": "📜", "color": "#8a7f73", "role": "routine" },
+    { "id": "court", "name": "Двор", "icon": "👑", "color": "#a83a5a", "role": "line" },
+    { "id": "war", "name": "Война", "icon": "⚔", "color": "#5a4fb3", "role": "line" },
+    { "id": "faith", "name": "Вера", "icon": "✝", "color": "#b08d3c", "role": "line" },
+    { "id": "thoughts", "name": "Раздумья", "icon": "🕯", "color": "#7fa5c9", "role": "mirror", "timer": null },
+    { "id": "omen", "name": "Знамения", "icon": "☄", "color": "#c46a2f", "role": "omen" },
+    { "id": "event", "name": "Событие", "icon": "🎲", "color": "#9a6fb0", "role": "event" }
+  ],
+  "plotTimers": [{ "id": "plot", "title": "Заговор при дворе", "max": 3 }],
+  "gmReference": "**Как устроен пример.** Четыре шкалы с кризисами и одна спокойная (Амбары) с механикой беженцев. Есть личная карта Короля, спорная карта Канцлера и Маршала, секретная карта Канцлера, цепочка через флаг, отложенная карта, таймер сюжета, случайные события и кризисные сцены.\n\nЗамените всё своим — формат описан в README.",
+  "eventRules": "Один бросок в начале каждого года: d100 — 01–50 тихо, 51–82 мягкое (d12), 83–94 среднее (d10), 95–99 тяжёлое (d6), 00 катастрофа.",
+  "cards": [
+    {
+      "id": "d01_tax",
+      "title": "Сбор податей",
+      "deck": "daily",
+      "timeOfDay": "утро",
+      "face": "Сборщики вернулись из провинций. «Ваше величество, можно взять больше — но народ будет недоволен».",
+      "left": { "label": "Поднять подати", "effects": [{ "type": "track", "track": "treasury", "delta": 2 }, { "type": "track", "track": "people", "delta": -2 }] },
+      "right": { "label": "Оставить как есть", "effects": [{ "type": "track", "track": "treasury", "delta": -1 }, { "type": "track", "track": "people", "delta": 1 }] },
+      "idleDefault": "left",
+      "oneShot": false
+    },
+    {
+      "id": "d02_feast",
+      "title": "Пир",
+      "deck": "daily",
+      "face": "Знать ждёт пира в честь годовщины коронации.",
+      "left": { "label": "Устроить пышный пир", "effects": [{ "type": "track", "track": "treasury", "delta": -2 }, { "type": "track", "track": "army", "delta": 1 }] },
+      "right": { "label": "Скромный ужин", "effects": [{ "type": "track", "track": "church", "delta": 1 }] }
+    },
+    {
+      "id": "d03_refugees",
+      "title": "Беженцы у ворот",
+      "deck": "daily",
+      "face": "С востока пришли крестьяне из сожжённых деревень.",
+      "left": { "label": "Принять", "effects": [{ "type": "population", "delta": 3 }, { "type": "track", "track": "people", "delta": 1 }, { "type": "setFlag", "flag": "refugees_in" }] },
+      "right": { "label": "Закрыть ворота", "effects": [{ "type": "track", "track": "people", "delta": -1 }, { "type": "track", "track": "church", "delta": -1 }] }
+    },
+    {
+      "id": "c01_heir",
+      "title": "Вопрос наследника",
+      "deck": "court",
+      "face": "Королева-мать настаивает: пора выбрать наследника.",
+      "owner": "king",
+      "gmNote": "**👤 Личная карта Короля.** Решает только Король, остальные советуют вслух.",
+      "left": { "label": "Назвать старшего сына", "effects": [{ "type": "track", "track": "army", "delta": 1 }] },
+      "right": { "label": "Тянуть время", "effects": [{ "type": "timer", "id": "plot", "delta": 1 }], "gmNote": "Заговорщики наглеют." }
+    },
+    {
+      "id": "c02_budget",
+      "title": "Золото или сталь",
+      "deck": "court",
+      "face": "Канцлер просит денег на дороги, Маршал — на новые полки. На оба не хватит.",
+      "contested": { "between": ["chancellor", "marshal"], "tiebreaker": "king" },
+      "gmNote": "**👥 Спорная.** Решают Канцлер и Маршал; разойдутся — слово за Королём.",
+      "left": { "label": "Дороги (Канцлер)", "effects": [{ "type": "track", "track": "people", "delta": 1 }, { "type": "track", "track": "treasury", "delta": -1 }] },
+      "right": { "label": "Полки (Маршал)", "effects": [{ "type": "track", "track": "army", "delta": 2 }, { "type": "track", "track": "treasury", "delta": -1 }] }
+    },
+    {
+      "id": "c03_letter",
+      "title": "Тайное письмо",
+      "deck": "court",
+      "face": "Неизвестный предлагает Канцлеру имена заговорщиков — в обмен на услугу.",
+      "owner": "chancellor",
+      "secret": true,
+      "gmNote": "**🔒 Секретная карта Канцлера.** Приходит только ему на телефон.",
+      "left": { "label": "Согласиться", "effects": [{ "type": "setFlag", "flag": "knows_plotters" }, { "type": "timer", "id": "plot", "delta": -1 }] },
+      "right": { "label": "Сжечь письмо", "effects": [] }
+    },
+    {
+      "id": "c04_plot",
+      "title": "Заговор раскрыт",
+      "deck": "court",
+      "face": "Стража схватила двоих вельмож с ядом.",
+      "requires": [{ "anyOf": [{ "flag": "knows_plotters" }, { "timer": "plot", "op": ">=", "value": 2 }] }],
+      "left": { "label": "Публичная казнь", "effects": [{ "type": "track", "track": "people", "delta": 1 }, { "type": "track", "track": "church", "delta": -1 }] },
+      "right": { "label": "Тихая ссылка", "effects": [{ "type": "timer", "id": "plot", "delta": 1 }] },
+      "escalation": "s_trial"
+    },
+    {
+      "id": "w01_border",
+      "title": "Пограничный набег",
+      "deck": "war",
+      "face": "Соседи жгут пограничные деревни.",
+      "left": { "label": "Ответный удар", "effects": [{ "type": "track", "track": "army", "delta": -1 }, { "type": "track", "track": "people", "delta": 1 }, { "type": "setFlag", "flag": "war" }] },
+      "right": { "label": "Переговоры", "effects": [{ "type": "track", "track": "treasury", "delta": -1 }, { "type": "track", "track": "army", "delta": -1 }] },
+      "interlude": 1
+    },
+    {
+      "id": "w02_victory",
+      "title": "Вести с фронта",
+      "deck": "war",
+      "face": "Армия просит подкреплений для решающей битвы.",
+      "requires": [{ "flag": "war" }],
+      "left": { "label": "Отправить всё", "effects": [{ "type": "track", "track": "army", "delta": 2 }, { "type": "track", "track": "treasury", "delta": -2 }] },
+      "right": { "label": "Отступить", "effects": [{ "type": "clearFlag", "flag": "war" }, { "type": "track", "track": "army", "delta": -1 }] }
+    },
+    {
+      "id": "w03_hunger",
+      "title": "Голодный бунт",
+      "deck": "war",
+      "face": "Беженцы громят склады.",
+      "tags": ["hunger"],
+      "left": { "label": "Раздать хлеб", "effects": [{ "type": "track", "track": "granary", "delta": -1 }, { "type": "track", "track": "people", "delta": 1 }] },
+      "right": { "label": "Ввести войска", "effects": [{ "type": "track", "track": "people", "delta": -2 }, { "type": "track", "track": "army", "delta": 1 }] }
+    },
+    {
+      "id": "f01_bishop",
+      "title": "Епископ",
+      "deck": "faith",
+      "face": "Епископ требует земли под новый монастырь.",
+      "left": { "label": "Отдать земли", "effects": [{ "type": "track", "track": "church", "delta": 2 }, { "type": "track", "track": "treasury", "delta": -1 }, { "type": "addCard", "card": "f02_monastery", "delay": { "interludes": 1 } }] },
+      "right": { "label": "Отказать", "effects": [{ "type": "track", "track": "church", "delta": -2 }] }
+    },
+    {
+      "id": "f02_monastery",
+      "title": "Монастырь построен",
+      "deck": "faith",
+      "face": "Монахи предлагают взять беженцев на работу в полях.",
+      "left": { "label": "Согласиться", "effects": [{ "type": "population", "delta": -2 }, { "type": "track", "track": "granary", "delta": 1 }] },
+      "right": { "label": "Пусть молятся", "effects": [{ "type": "track", "track": "church", "delta": 1 }] }
+    },
+    {
+      "id": "t01_doubt",
+      "title": "Бессонница",
+      "deck": "thoughts",
+      "face": "Ночью Маршал думает: ради чего эта война?",
+      "owner": "marshal",
+      "left": { "label": "Ради короны", "effects": [{ "type": "setFlag", "flag": "marshal_loyal" }] },
+      "right": { "label": "Ради себя", "effects": [{ "type": "setFlag", "flag": "marshal_ambitious" }], "gmNote": "Зерно будущего переворота." }
+    },
+    {
+      "id": "o01_comet",
+      "title": "Комета",
+      "deck": "omen",
+      "face": "Над столицей три ночи горит хвостатая звезда."
+    },
+    {
+      "id": "ev_m01_rain",
+      "title": "Дожди",
+      "deck": "event",
+      "face": "Месяц ливней — дороги размыты, урожай гниёт.",
+      "oneShot": false,
+      "event": {
+        "tier": "mild",
+        "roll": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+        "bestFor": "Канцлер",
+        "success": "запасы спасены, 🌾 не падает.",
+        "failure": "🌾−1 и 🧑‍🌾−1.",
+        "failureEffects": [{ "type": "track", "track": "granary", "delta": -1 }, { "type": "track", "track": "people", "delta": -1 }]
+      },
+      "left": { "label": "Открыть амбары", "effects": [{ "type": "track", "track": "granary", "delta": -1 }] },
+      "right": { "label": "Ждать солнца", "effects": [{ "type": "track", "track": "people", "delta": -1 }] }
+    },
+    {
+      "id": "ev_s01_plague",
+      "title": "Мор",
+      "deck": "event",
+      "face": "В порту — чёрная смерть.",
+      "event": { "tier": "medium", "roll": [1, 2, 3, 4, 5, 6, 7, 8, 9], "immediate": true },
+      "left": { "label": "Закрыть порт", "effects": [{ "type": "track", "track": "treasury", "delta": -2 }] },
+      "right": { "label": "Молиться", "effects": [{ "type": "track", "track": "church", "delta": 1 }, { "type": "track", "track": "people", "delta": -2 }] }
+    }
+  ],
+  "scenes": [
+    {
+      "id": "s_trial",
+      "title": "Суд над заговорщиками",
+      "playerText": "Тронный зал. Обвиняемые в цепях.",
+      "gmNotes": "Один из заговорщиков — кузен Маршала.",
+      "outcomes": [
+        { "label": "Казнить всех", "effects": [{ "type": "track", "track": "army", "delta": -1 }] },
+        { "label": "Помиловать кузена", "effects": [{ "type": "setFlag", "flag": "marshal_owes" }] }
+      ]
+    },
+    { "id": "x_church_low", "title": "Анафема", "playerText": "Церковь отлучила короля.", "crisisOf": { "track": "church", "edge": "low" }, "outcomes": [] },
+    { "id": "x_church_high", "title": "Теократия", "playerText": "Епископы правят вместо короны.", "crisisOf": { "track": "church", "edge": "high" }, "outcomes": [] },
+    { "id": "x_people_low", "title": "Восстание", "playerText": "Толпа штурмует дворец.", "crisisOf": { "track": "people", "edge": "low" }, "outcomes": [] },
+    { "id": "x_people_high", "title": "Народный трибун", "playerText": "Любимец толпы требует трон.", "crisisOf": { "track": "people", "edge": "high" }, "outcomes": [] },
+    { "id": "x_army_low", "title": "Вторжение", "playerText": "Врагу некому дать отпор.", "crisisOf": { "track": "army", "edge": "low" }, "outcomes": [] },
+    { "id": "x_army_high", "title": "Переворот", "playerText": "Генералы окружили дворец.", "crisisOf": { "track": "army", "edge": "high" }, "outcomes": [] },
+    { "id": "x_treasury_low", "title": "Банкротство", "playerText": "Казна пуста, наёмники уходят.", "crisisOf": { "track": "treasury", "edge": "low" }, "outcomes": [] },
+    { "id": "x_treasury_high", "title": "Золотая лихорадка", "playerText": "Двор тонет в роскоши и интригах.", "crisisOf": { "track": "treasury", "edge": "high" }, "outcomes": [] }
+  ]
+}

@@ -1,6 +1,6 @@
 // Проверки боевой колоды data/rouen-deck.json (конвертирована из «Руан — колода на игру»).
 import { describe, expect, it } from 'vitest';
-import raw from '../../data/rouen-deck.json';
+import raw from '../../scenarios/rouen.json';
 import type { Condition, DeckData, Effect, GameState } from './types';
 import { validateDeck } from './validate';
 import { acknowledge, choose, currentView, escalate, newGame, nextInterlude, resolveScene, setDraftQueue, startInterlude, type Ctx } from './game';

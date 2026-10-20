@@ -215,7 +215,7 @@ kbd {
 /* ---------- шкалы ---------- */
 .tracks {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 10px;
   padding: 12px 16px;
 }
@@ -286,7 +286,7 @@ kbd {
   background: linear-gradient(90deg, var(--accent), var(--accent-2));
   transition: width 0.8s ease;
 }
-.track.capacity .fill {
+.track.calm .fill {
   background: linear-gradient(90deg, #4f6d8a, #7fa5c9);
 }
 .track-bar .zone {
@@ -928,9 +928,6 @@ pre.json {
     padding: 8px;
     gap: 6px;
   }
-  .track.capacity {
-    grid-column: span 2;
-  }
   .options {
     grid-template-columns: 1fr;
   }
@@ -1153,4 +1150,28 @@ details.master code,
 }
 .roll-result {
   margin-top: 6px;
+}
+
+/* ---------- загрузка сценария ---------- */
+.welcome {
+  max-width: 820px;
+  margin: 24px auto;
+}
+.welcome h1 {
+  font-family: var(--serif);
+  color: var(--accent-2);
+  margin-top: 0;
+}
+.scenario-loader {
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin: 10px 0;
+}
+.scenario-loader.big {
+  padding: 18px 20px;
+}
+.scenario-loader.drag {
+  border-color: var(--accent-2);
+  background: var(--panel-2);
 }

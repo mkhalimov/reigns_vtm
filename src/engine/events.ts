@@ -1,7 +1,7 @@
 // Пул случайных событий: бросок в начале интерлюдии (d100 + модификаторы, затем кубик уровня).
-import { CRISIS_TRACKS, type Card, type DeckData, type EventRoll, type EventTier, type GameState } from './types';
+import type { Card, DeckData, EventRoll, EventTier, GameState } from './types';
 import type { Ctx, Rng } from './game';
-import { TRACK_LABELS } from './rules';
+import { crisisTracks, trackName } from './scenario';
 
 export const TIER_LABELS: Record<EventTier | 'none', string> = {
   none: '⚪ Тихо — событий нет',
@@ -28,11 +28,11 @@ export const eventsOf = (deck: DeckData, tier?: EventTier) =>
 const used = (s: GameState, c: Card) => c.event!.tier !== 'mild' && (s.played.includes(c.id) || s.removed.includes(c.id));
 
 /** Модификаторы шага 1. */
-export function rollModifiers(s: GameState): { label: string; value: number }[] {
+export function rollModifiers(s: GameState, deck: DeckData): { label: string; value: number }[] {
   const mods: { label: string; value: number }[] = [];
-  const danger = CRISIS_TRACKS.filter((t) => s.tracks[t] <= 2 || s.tracks[t] >= 8);
+  const danger = crisisTracks(deck).filter((t) => s.tracks[t] <= 2 || s.tracks[t] >= 8);
   if (danger.length)
-    mods.push({ label: `Шкалы в опасной зоне: ${danger.map((t) => TRACK_LABELS[t]).join(', ')}`, value: 3 * danger.length });
+    mods.push({ label: `Шкалы в опасной зоне: ${danger.map((t) => trackName(deck, t)).join(', ')}`, value: 3 * danger.length });
   const prev = s.interlude.number - 1;
   if (prev >= 1) {
     const prevEntries = s.journal.filter((e) => e.interlude === prev);
@@ -52,7 +52,7 @@ const d = (sides: number, rng: Rng) => 1 + Math.floor(rng() * sides);
  */
 export function rollEvents(s: GameState, deck: DeckData, rng: Rng = Math.random): EventRoll {
   const d100 = d(100, rng);
-  const mods = rollModifiers(s);
+  const mods = rollModifiers(s, deck);
   const total = Math.max(1, Math.min(100, d100 + mods.reduce((a, m) => a + m.value, 0)));
   const tier = tierOf(total);
   const roll: EventRoll = { interlude: s.interlude.number, d100, mods, total, tier, attracted: [], notes: [] };

@@ -3,11 +3,12 @@ import { useState } from 'react';
 import type { GameState, TimeoutPolicy } from '../../engine/types';
 import { addJournalNote, updateSettings } from '../../engine/game';
 import { journalToMarkdown } from '../../engine/journal';
-import { gameTimeLabel, TRACK_LABELS } from '../../engine/rules';
-import { parseDeckText } from '../../engine/validate';
+import { gameTimeLabel } from '../../engine/rules';
+import { decksWithRole, trackName } from '../../engine/scenario';
+import { ScenarioLoader } from './ScenarioLoader';
 import { parseSave } from '../../engine/save';
 import { publicView } from '../../engine/public';
-import { builtInDeck, currentSave, dispatch, loadSave, newGameSameDeck, replaceDeck, useApp } from '../../store';
+import { currentSave, dispatch, loadSave, newGameSameDeck, useApp } from '../../store';
 import { Md } from '../Md';
 import { PlayerScreen } from '../PlayerScreen';
 import { DeckTag, download, MasterNote, OptionBlock, readFile, Requires, stamp } from './common';
@@ -18,6 +19,7 @@ import { newGame, setDraftQueue, startInterlude } from '../../engine/game';
 
 export function JournalPanel() {
   const game = useApp((s) => s.game);
+  const deck = useApp((s) => s.deck);
   const [gmMode, setGmMode] = useState(true);
   const [note, setNote] = useState('');
   const [pub, setPub] = useState(false);
@@ -30,10 +32,10 @@ export function JournalPanel() {
           <input type="checkbox" checked={gmMode} onChange={(e) => setGmMode(e.target.checked)} /> GM-детали
         </label>
         <span className="spacer" />
-        <button onClick={() => download(`rouen-chronicle-players-${stamp()}.md`, journalToMarkdown(game, { gm: false }), 'text/markdown')}>
+        <button onClick={() => download(`chronicle-players-${stamp()}.md`, journalToMarkdown(game, { gm: false, deck }), 'text/markdown')}>
           ⬇ Markdown для игроков
         </button>
-        <button onClick={() => download(`rouen-chronicle-gm-${stamp()}.md`, journalToMarkdown(game, { gm: true }), 'text/markdown')}>
+        <button onClick={() => download(`chronicle-gm-${stamp()}.md`, journalToMarkdown(game, { gm: true, deck }), 'text/markdown')}>
           ⬇ Markdown полный (GM)
         </button>
       </div>
@@ -55,7 +57,7 @@ export function JournalPanel() {
         {entries.map((e) => (
           <li key={e.id} className={`j-${e.kind} ${e.public === null ? 'gm-only' : ''}`}>
             <span className="j-time">
-              И{e.interlude} · {gameTimeLabel(e.week, game.settings.startSeason)} · {new Date(e.realTime).toLocaleString('ru-RU')}
+              И{e.interlude} · {gameTimeLabel(e.week, game.settings.startSeason, deck)} · {new Date(e.realTime).toLocaleString('ru-RU')}
             </span>
             {e.public !== null ? <Md text={e.public} /> : <span className="muted">служебная запись</span>}
             {gmMode && e.gm.length > 0 && (
@@ -77,107 +79,38 @@ export function JournalPanel() {
 
 export function DeckPanel() {
   const deck = useApp((s) => s.deck);
-  const [errors, setErrors] = useState<string[]>([]);
-  const [warnings, setWarnings] = useState<string[]>([]);
-  const [candidate, setCandidate] = useState<DeckData | null>(null);
-  const [text, setText] = useState('');
   const [preview, setPreview] = useState<string | null>(null);
   const [q, setQ] = useState('');
-
-  const check = (t: string) => {
-    const r = parseDeckText(t);
-    setErrors(r.errors);
-    setWarnings(r.warnings);
-    setCandidate(r.deck);
-  };
   const previewCard = deck.cards.find((c) => c.id === preview);
 
   return (
     <div className="deck-layout">
       <section className="panel">
         <div className="panel-head">
-          <h2>Колода: {deck.title ?? 'без названия'}</h2>
+          <h2>Сценарий: {deck.title || 'не загружен'}</h2>
           <span className="muted small">
-            {deck.cards.length} карт, {deck.scenes.length} сцен
+            {deck.cards.length} карт, {deck.scenes.length} сцен, шкал: {deck.tracks.length}
           </span>
           <span className="spacer" />
-          <button onClick={() => download(`rouen-deck-${stamp()}.json`, JSON.stringify(deck, null, 2))}>⬇ Экспорт JSON</button>
-          <button
-            onClick={async () => {
-              const t = await readFile('.json,application/json');
-              if (t !== null) {
-                setText(t);
-                check(t);
-              }
-            }}
-          >
-            ⬆ Импорт из файла
-          </button>
-          <button
-            title="Колода «Руан — колода на игру», встроенная в приложение"
-            onClick={() => {
-              setErrors([]);
-              setWarnings([]);
-              setCandidate(builtInDeck);
-            }}
-          >
-            ⚜ Встроенная колода «Руан»
-          </button>
+          {deck.cards.length > 0 && (
+            <button onClick={() => download(`scenario-${stamp()}.json`, JSON.stringify(deck, null, 2))}>⬇ Экспорт JSON</button>
+          )}
         </div>
+        <ScenarioLoader />
         <div className="gm-ref">
           <MasterNote text={deck.gmReference} title="📖 Справка мастера" open={false} />
         </div>
-        <details>
-          <summary>Вставить JSON колоды вручную</summary>
-          <textarea className="json" value={text} onChange={(e) => setText(e.target.value)} rows={10} placeholder='{"cards": [...], "scenes": [...]}' />
-          <button onClick={() => check(text)}>Проверить</button>
-        </details>
-        {errors.length > 0 && (
-          <div className="alert">
-            <b>Колода не импортирована — ошибок: {errors.length}</b>
-            <ul className="mono small">
-              {errors.slice(0, 50).map((e, i) => (
-                <li key={i} style={{ whiteSpace: 'pre-wrap' }}>
-                  {e}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-        {candidate && (
-          <div className="ok-box">
-            <b>
-              Колода корректна: {candidate.cards.length} карт, {candidate.scenes.length} сцен.
-            </b>
-            {warnings.length > 0 && (
-              <ul className="small muted">
-                {warnings.map((w, i) => (
-                  <li key={i}>{w}</li>
-                ))}
-              </ul>
+        {deck.tracks.length > 0 && (
+          <div className="small muted">
+            Шкалы: {deck.tracks.map((t) => `${t.icon ?? ''} ${t.name}${t.crisis === false ? ' (без кризисов)' : ''}`).join(' · ')}
+            <br />
+            Колоды: {deck.decks.map((d) => `${d.icon ?? ''} ${d.name} [${d.role ?? 'line'}]`).join(' · ')}
+            {deck.population && (
+              <>
+                <br />
+                {deck.population.label ?? 'Население'} против «{trackName(deck, deck.population.capacityTrack)}»
+              </>
             )}
-            <div className="row">
-              <button
-                onClick={() => {
-                  replaceDeck(candidate, 'keep');
-                  setCandidate(null);
-                  setText('');
-                }}
-              >
-                Заменить колоду, сохранить партию
-              </button>
-              <button
-                className="danger"
-                onClick={() => {
-                  if (!confirm('Начать новую партию с этой колодой? Текущая партия будет заменена (сделайте экспорт сохранения).')) return;
-                  replaceDeck(candidate, 'new');
-                  setCandidate(null);
-                  setText('');
-                }}
-              >
-                Новая партия с этой колодой
-              </button>
-            </div>
           </div>
         )}
         <input placeholder="Поиск по картам…" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -196,7 +129,7 @@ export function DeckPanel() {
               .map((c) => (
                 <tr key={c.id} className={preview === c.id ? 'sel' : ''} onClick={() => setPreview(c.id)}>
                   <td>
-                    <DeckTag card={c} />
+                    <DeckTag card={c} deck={deck} />
                   </td>
                   <td>
                     {c.title} <code className="muted small">{c.id}</code>
@@ -214,7 +147,7 @@ export function DeckPanel() {
         <ul className="small">
           {deck.scenes.map((s) => (
             <li key={s.id}>
-              {s.crisisOf ? `🔥 [${TRACK_LABELS[s.crisisOf.track]} ${s.crisisOf.edge === 'low' ? '0' : '10'}] ` : ''}
+              {s.crisisOf ? `🔥 [${trackName(deck, s.crisisOf.track)} ${s.crisisOf.edge === 'low' ? '0' : '10'}] ` : ''}
               <b>{s.title}</b> <code className="muted">{s.id}</code>
             </li>
           ))}
@@ -230,7 +163,7 @@ export function DeckPanel() {
             <PreviewAsPlayers deck={deck} cardId={previewCard.id} />
           </div>
           <MasterNote text={previewCard.gmNote} />
-          <Requires card={previewCard} />
+          <Requires card={previewCard} deck={deck} />
           <div className="current-options">
             <OptionBlock side="◀" opt={previewCard.left} deck={deck} />
             <OptionBlock side="▶" opt={previewCard.right} deck={deck} />
@@ -266,6 +199,11 @@ function PreviewAsPlayers({ deck, cardId }: { deck: DeckData; cardId: string }) 
 
 export function SettingsPanel() {
   const game = useApp((s) => s.game);
+  const deck = useApp((s) => s.deck);
+  const names = (role: 'routine' | 'line' | 'mirror' | 'omen') =>
+    decksWithRole(deck, role)
+      .map((id) => deck.decks.find((d) => d.id === id)?.name ?? id)
+      .join(', ') || 'нет колод';
   const lastSavedAt = useApp((s) => s.lastSavedAt);
   const [err, setErr] = useState<string | null>(null);
   const st = game.settings;
@@ -347,13 +285,13 @@ export function SettingsPanel() {
         </label>
       </section>
       <section className="panel">
-        <h2>Автосборка интерлюдии</h2>
+        <h2>Автосборка раунда</h2>
         {(
           [
-            ['routine', 'Рутина'],
-            ['lines', 'Карты линий (Де Руан, Ночь, Ворота, Двор)'],
-            ['mirror', 'Зеркало'],
-            ['omen', 'Знамения'],
+            ['routine', `Рутина (роль routine: ${names('routine')})`],
+            ['lines', `Сюжетные линии (роль line: ${names('line')})`],
+            ['mirror', `Личное / рефлексия (роль mirror: ${names('mirror')})`],
+            ['omen', `Знамения (роль omen: ${names('omen')})`],
           ] as const
         ).map(([k, label]) => (
           <label key={k}>

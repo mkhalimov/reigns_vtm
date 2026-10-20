@@ -1,9 +1,6 @@
 // Пульт GM: текущая карта/сцена/сборка/итоги + боковая панель правок (ТЗ 3.2, 3.4, 3.5).
 import { useMemo, useState } from 'react';
 import {
-  CRISIS_TRACKS,
-  DECKS,
-  TRACKS,
   type Card,
   type CrisisTrackId,
   type DeckData,
@@ -38,7 +35,8 @@ import {
 } from '../../engine/game';
 import { autobuild } from '../../engine/build';
 import { applyRoll, eventsOf, placeEvent, rollModifiers, TIER_LABELS } from '../../engine/events';
-import { cardTimerSeconds, checkAll, DECK_LABELS, isAvailable, isOneShot, TRACK_ICONS, TRACK_LABELS } from '../../engine/rules';
+import { cardTimerSeconds, checkAll, isAvailable, isOneShot } from '../../engine/rules';
+import { crisisTracks, isCrisisTrack, roundName, trackName } from '../../engine/scenario';
 import { dispatch, useApp } from '../../store';
 import { disableTimer, pauseTimer, resetTimer, useTimer } from '../../timer';
 import { Md } from '../Md';
@@ -63,7 +61,7 @@ export function TablePanel() {
       </main>
       <aside className="table-side">
         <RoomPanel />
-        <TrackEditor game={game} />
+        <TrackEditor game={game} deck={deck} />
         {game.sceneQueue.length > 0 && <SceneQueue game={game} deck={deck} />}
         <Flags game={game} />
         <PlotTimers game={game} deck={deck} />
@@ -87,18 +85,18 @@ function CurrentCard({ card, game, deck }: { card: Card; game: GameState; deck: 
         <h2>
           Карта {game.interlude.pos + 1} из {game.interlude.queue.length}
         </h2>
-        <DeckTag card={card} />
+        <DeckTag card={card} deck={deck} />
         <PersonalChips card={card} deck={deck} />
         <code className="muted">{card.id}</code>
       </div>
-      {game.awaitingGm && <div className="alert">Игроки ждут решения Рассказчика (время вышло или голоса разделились). Выберите вариант за игроков или сбросьте таймер.</div>}
+      {game.awaitingGm && <div className="alert">Игроки ждут решения Мастера (время вышло или голоса разделились). Выберите вариант за игроков или сбросьте таймер.</div>}
       <div className="current-grid">
         <div className="current-face">
           <h3>{card.title}</h3>
           {card.timeOfDay && <div className="muted small">{card.timeOfDay}</div>}
           <Md text={card.face} />
           {card.speaker && <div className="muted">— {card.speaker}</div>}
-          <Requires card={card} />
+          <Requires card={card} deck={deck} />
           <div className="small">
             ⚡ Разбираемся лично:{' '}
             {esc ? <b>сцена «{esc.title}»</b> : <b>импровизация: «Успех» лучше обоих вариантов, «Провал» хуже обоих</b>}
@@ -181,9 +179,9 @@ function SceneControl({ req, game, deck }: { req: SceneRequest; game: GameState;
             value={req.penaltyTrack}
             onChange={(e) => dispatch((g) => updateSceneRequest(g, req.id, { penaltyTrack: e.target.value as CrisisTrackId }))}
           >
-            {CRISIS_TRACKS.map((t) => (
+            {crisisTracks(deck).map((t) => (
               <option key={t} value={t}>
-                {TRACK_LABELS[t]} ({game.tracks[t]})
+                {trackName(deck, t)} ({game.tracks[t]})
               </option>
             ))}
           </select>
@@ -192,7 +190,7 @@ function SceneControl({ req, game, deck }: { req: SceneRequest; game: GameState;
       )}
       {req.kind === 'crisis' && (
         <div className="row">
-          После исхода {TRACK_LABELS[req.track]} откатится к{' '}
+          После исхода {trackName(deck, req.track)} откатится к{' '}
           <input
             type="number"
             min={0}
@@ -235,7 +233,7 @@ function CustomOutcome({ deck, onApply }: { deck: DeckData; onApply: (e: Effect[
       .map((x) => x.trim())
       .filter(Boolean);
   const build = (): Effect[] => [
-    ...TRACKS.filter((t) => deltas[t]).map((t): Effect => ({ type: 'track', track: t, delta: deltas[t] })),
+    ...deck.tracks.filter((t) => deltas[t.id]).map((t): Effect => ({ type: 'track', track: t.id, delta: deltas[t.id] })),
     ...(deltas.population ? [{ type: 'population', delta: deltas.population } as Effect] : []),
     ...split(flagsOn).map((flag): Effect => ({ type: 'setFlag', flag })),
     ...split(flagsOff).map((flag): Effect => ({ type: 'clearFlag', flag })),
@@ -249,9 +247,9 @@ function CustomOutcome({ deck, onApply }: { deck: DeckData; onApply: (e: Effect[
         <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Свой исход" />
       </label>
       <div className="deltas">
-        {[...TRACKS, 'population' as const].map((t) => (
+        {[...deck.tracks.map((t) => t.id), ...(deck.population ? ['population'] : [])].map((t) => (
           <label key={t}>
-            {TRACK_LABELS[t]}
+            {trackName(deck, t)}
             <input
               type="number"
               className="num"
@@ -299,7 +297,9 @@ function DraftBuilder({ game, deck }: { game: GameState; deck: DeckData }) {
   return (
     <section className="panel">
       <div className="panel-head">
-        <h2>Интерлюдия {game.interlude.number}: сборка</h2>
+        <h2>
+          {roundName(deck)} {game.interlude.number}: сборка
+        </h2>
       </div>
       <div className="row wrap">
         <button
@@ -323,7 +323,7 @@ function DraftBuilder({ game, deck }: { game: GameState; deck: DeckData }) {
         </button>
         <span className="spacer" />
         <button className="primary" disabled={!game.interlude.queue.length && !game.pending.length} onClick={() => dispatch(startInterlude)}>
-          ▶ Начать интерлюдию
+          ▶ Начать раунд
         </button>
       </div>
       {notes.map((n, i) => (
@@ -345,7 +345,7 @@ function EventRollPanel({ game, deck }: { game: GameState; deck: DeckData }) {
   const [pickId, setPickId] = useState('');
   const card = (id?: string) => deck.cards.find((c) => c.id === id);
   if (!eventsOf(deck).length) return null;
-  const mods = r ? r.mods : rollModifiers(game);
+  const mods = r ? r.mods : rollModifiers(game, deck);
   const place = (id: string) => dispatch((g, c) => placeEvent(g, c, id));
   const placed = r?.placed;
   const choices = r && r.tier !== 'none' ? eventsOf(deck, r.tier).filter((c) => isAvailable(c, game)) : [];
@@ -353,7 +353,7 @@ function EventRollPanel({ game, deck }: { game: GameState; deck: DeckData }) {
     <div className="roll-panel">
       <div className="row wrap">
         <b>🎲 Случайные события</b>
-        <span className="muted small">один бросок в начале интерлюдии</span>
+        <span className="muted small">один бросок в начале раунда</span>
         <span className="spacer" />
         <button className={r ? 'ghost' : 'primary'} onClick={() => dispatch(applyRoll)}>
           {r ? 'Перебросить' : 'Бросить'}
@@ -386,7 +386,7 @@ function EventRollPanel({ game, deck }: { game: GameState; deck: DeckData }) {
                 {card(r.eventId)?.event?.immediate ? ' · немедленно' : ''}
               </span>
               <button disabled={!!placed} onClick={() => place(r.eventId!)}>
-                {placed === r.eventId ? '✓ в интерлюдии' : 'Положить в интерлюдию'}
+                {placed === r.eventId ? '✓ в очереди' : 'Положить в очередь'}
               </button>
             </div>
           )}
@@ -429,7 +429,7 @@ function QueueEditor({ game, deck }: { game: GameState; deck: DeckData }) {
   return (
     <section className="panel">
       <div className="panel-head">
-        <h2>Очередь интерлюдии</h2>
+        <h2>Очередь раунда</h2>
         <span className="muted small">перетаскивайте карты, чтобы поменять порядок</span>
       </div>
       <QueueList game={game} deck={deck} />
@@ -475,7 +475,7 @@ function QueueList({ game, deck }: { game: GameState; deck: DeckData }) {
           >
             <span className="q-n">{played.length + i + 1}</span>
             <span className="grip">⋮⋮</span>
-            {c ? <DeckTag card={c} /> : <span className="chip warn">нет в колоде</span>}
+            {c ? <DeckTag card={c} deck={deck} /> : <span className="chip warn">нет в колоде</span>}
             {c && <PersonalChips card={c} deck={deck} />}
             <span className="q-title">{c?.title ?? id}</span>
             {isCurrent && <span className="chip">сейчас</span>}
@@ -545,9 +545,9 @@ function Pool({ game, deck }: { game: GameState; deck: DeckData }) {
       <div className="row wrap filters">
         <select value={deckF} onChange={(e) => setDeckF(e.target.value)}>
           <option value="">Все колоды</option>
-          {DECKS.map((d) => (
-            <option key={d} value={d}>
-              {DECK_LABELS[d]}
+          {deck.decks.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.icon} {d.name}
             </option>
           ))}
         </select>
@@ -564,7 +564,7 @@ function Pool({ game, deck }: { game: GameState; deck: DeckData }) {
         {list.map((c) => (
           <li key={c.id}>
             <div className="row">
-              <DeckTag card={c} />
+              <DeckTag card={c} deck={deck} />
               <PersonalChips card={c} deck={deck} />
               <button className="link" onClick={() => setOpen(open === c.id ? null : c.id)}>
                 {c.title}
@@ -593,7 +593,7 @@ function Pool({ game, deck }: { game: GameState; deck: DeckData }) {
                 <code className="muted">{c.id}</code>
                 <Md text={c.face} />
                 <MasterNote text={c.gmNote} open={false} />
-                <Requires card={c} />
+                <Requires card={c} deck={deck} />
                 <div className="current-options">
                   <OptionBlock side="◀" opt={c.left} deck={deck} />
                   <OptionBlock side="▶" opt={c.right} deck={deck} />
@@ -615,11 +615,14 @@ function SummaryGm({ game, deck }: { game: GameState; deck: DeckData }) {
   return (
     <section className="panel">
       <div className="panel-head">
-        <h2>Итоги интерлюдии {s.number}</h2>
+        <h2>
+          Итоги: {roundName(deck).toLowerCase()} {s.number}
+        </h2>
       </div>
       <SummaryTracks
-        before={{ ...s.tracksBefore, population: s.populationBefore }}
-        after={{ ...s.tracksAfter, population: s.populationAfter }}
+        before={{ ...s.tracksBefore, ...(deck.population ? { population: s.populationBefore } : {}) }}
+        after={{ ...s.tracksAfter, ...(deck.population ? { population: s.populationAfter } : {}) }}
+        names={{ ...Object.fromEntries(deck.tracks.map((t) => [t.id, t.name])), population: trackName(deck, 'population') }}
       />
       <h3>Решения</h3>
       <ol>
@@ -648,7 +651,7 @@ function SummaryGm({ game, deck }: { game: GameState; deck: DeckData }) {
       <div className="row">
         <span className="spacer" />
         <button className="primary" onClick={() => dispatch((g, c) => nextInterlude(g, c))}>
-          Собрать интерлюдию {s.number + 1} →
+          Собрать: {roundName(deck).toLowerCase()} {s.number + 1} →
         </button>
       </div>
     </section>
@@ -657,11 +660,11 @@ function SummaryGm({ game, deck }: { game: GameState; deck: DeckData }) {
 
 // ---------- боковая панель ----------
 
-function TrackEditor({ game }: { game: GameState }) {
-  const row = (t: TrackId | 'population', v: number, icon: string) => (
-    <div key={t} className={`track-edit ${t !== 'capacity' && t !== 'population' && (v <= 2 || v >= 8) ? 'danger' : ''}`}>
+function TrackEditor({ game, deck }: { game: GameState; deck: DeckData }) {
+  const row = (t: TrackId | 'population', v: number, icon?: string) => (
+    <div key={t} className={`track-edit ${t !== 'population' && isCrisisTrack(deck, t) && (v <= 2 || v >= 8) ? 'danger' : ''}`}>
       <span>
-        {icon} {TRACK_LABELS[t]}
+        {icon} {trackName(deck, t)}
       </span>
       <button className="icon" onClick={() => dispatch((g, c) => setTrack(g, c, t, v - 1))}>
         −
@@ -680,9 +683,14 @@ function TrackEditor({ game }: { game: GameState }) {
   return (
     <section className="panel side">
       <h3>Шкалы</h3>
-      {TRACKS.map((t) => row(t, game.tracks[t], TRACK_ICONS[t]))}
-      {row('population', game.population, '👥')}
-      {game.population > game.tracks.capacity && <div className="alert small">Население больше Ёмкости — в конце интерлюдии Маскарад −1</div>}
+      {deck.tracks.map((t) => row(t.id, game.tracks[t.id] ?? 0, t.icon))}
+      {deck.population && row('population', game.population, '👥')}
+      {deck.population && game.population > (game.tracks[deck.population.capacityTrack] ?? 0) && (
+        <div className="alert small">
+          {trackName(deck, 'population')} больше, чем «{trackName(deck, deck.population.capacityTrack)}» — в конце раунда сработает штраф
+          {deck.population.overflow ? ` (${trackName(deck, deck.population.overflow.track)} ${deck.population.overflow.delta})` : ''}.
+        </div>
+      )}
     </section>
   );
 }
@@ -785,7 +793,7 @@ function Pending({ game, deck }: { game: GameState; deck: DeckData }) {
         {game.pending.map((p, i) => (
           <li key={i}>
             {title(p.card)} —{' '}
-            {p.dueInterlude !== undefined ? `интерлюдия ${p.dueInterlude}` : `через ${Math.max(0, (p.dueCardCount ?? 0) - game.cardCount)} карт`}
+            {p.dueInterlude !== undefined ? `${roundName(deck).toLowerCase()} ${p.dueInterlude}` : `через ${Math.max(0, (p.dueCardCount ?? 0) - game.cardCount)} карт`}
           </li>
         ))}
       </ul>

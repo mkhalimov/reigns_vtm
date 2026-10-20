@@ -2,7 +2,8 @@ import type { Card, DeckData, Effect, Option } from '../../engine/types';
 import { characterName } from '../../engine/game';
 import { TIER_LABELS } from '../../engine/events';
 import { Md } from '../Md';
-import { describeCondition, describeEffect, DECK_ICONS, DECK_LABELS } from '../../engine/rules';
+import { describeCondition, describeEffect } from '../../engine/rules';
+import { deckDef } from '../../engine/scenario';
 
 export function EffectList({ effects, deck }: { effects: Effect[]; deck: DeckData }) {
   if (!effects.length) return <div className="muted small">без эффектов</div>;
@@ -31,17 +32,18 @@ export function OptionBlock({ side, opt, deck, idle }: { side: string; opt?: Opt
   );
 }
 
-export function DeckTag({ card }: { card: Card }) {
+export function DeckTag({ card, deck }: { card: Card; deck: DeckData }) {
+  const d = deckDef(deck, card.deck);
   return (
-    <span className={`deck-tag deck-${card.deck}`}>
-      {DECK_ICONS[card.deck]} {DECK_LABELS[card.deck]}
+    <span className="deck-tag" style={{ ['--deck' as string]: d.color ?? 'var(--muted)' }}>
+      {d.icon} {d.name}
     </span>
   );
 }
 
-export function Requires({ card }: { card: Card }) {
+export function Requires({ card, deck }: { card: Card; deck: DeckData }) {
   if (!card.requires?.length) return null;
-  return <div className="small muted">требует: {card.requires.map(describeCondition).join('; ')}</div>;
+  return <div className="small muted">требует: {card.requires.map((c) => describeCondition(c, deck)).join('; ')}</div>;
 }
 
 export function download(name: string, text: string, type = 'application/json') {

@@ -10,6 +10,8 @@ import { CHANNEL, openChannel, type FromPlayers, type TimerView, type ToPlayers 
 import { PlayerScreen } from './ui/PlayerScreen';
 import { TablePanel } from './ui/gm/TablePanel';
 import { DeckPanel, JournalPanel, SettingsPanel } from './ui/gm/OtherPanels';
+import { ScenarioLoader } from './ui/gm/ScenarioLoader';
+import { APP_NAME, brandOf, hasScenario, roundName } from './engine/scenario';
 import { broadcastState, broadcastTimer, connectedIds, getHost, resetVotes, restoreRoom, setHostHandlers, setSeats, setSecretCard } from './net/host';
 import { decide, type Choice } from './engine/votes';
 
@@ -86,7 +88,7 @@ function Main() {
   }, []);
 
   const pub = useMemo(() => publicView(game, deck), [game, deck]);
-  const journal = useMemo(() => publicJournal(game), [game]);
+  const journal = useMemo(() => publicJournal(game, deck), [game, deck]);
 
   // таймер карты
   useEffect(() => {
@@ -190,7 +192,7 @@ function Main() {
         onAck={() => act({ type: 'ack', cardKey: key })}
         corner={
           <button className="corner-btn" onClick={() => setView('gm')} title="Пульт GM (`)">
-            ⚜
+            ✦
           </button>
         }
       />
@@ -199,16 +201,18 @@ function Main() {
   return (
     <div className="gm">
       <header className="gm-bar">
-        <div className="brand">⚜ Руан</div>
-        <div className="gm-status">
-          Интерлюдия {game.interlude.number} · {gameTimeLabel(game.week, game.settings.startSeason)}
-        </div>
+        <div className="brand">{brandOf(deck)}</div>
+        {hasScenario(deck) && (
+          <div className="gm-status">
+            {roundName(deck)} {game.interlude.number} · {gameTimeLabel(game.week, game.settings.startSeason, deck)}
+          </div>
+        )}
         <nav className="tabs">
           {(
             [
               ['table', 'Стол'],
               ['journal', 'Хроника'],
-              ['deck', 'Колода'],
+              ['deck', 'Сценарий'],
               ['settings', 'Настройки'],
             ] as const
           ).map(([k, label]) => (
@@ -236,7 +240,7 @@ function Main() {
         </button>
       </header>
       <div className="gm-body">
-        {tab === 'table' && <TablePanel />}
+        {tab === 'table' && (hasScenario(deck) ? <TablePanel /> : <Welcome />)}
         {tab === 'journal' && <JournalPanel />}
         {tab === 'deck' && <DeckPanel />}
         {tab === 'settings' && <SettingsPanel />}
@@ -273,7 +277,7 @@ function RemotePlayers() {
 
   if (!chan.current && !msg)
     return <div className="loading">Браузер не поддерживает BroadcastChannel — используйте вид игроков в основном окне ({CHANNEL}).</div>;
-  if (!msg) return <div className="loading">Ждём пульт Рассказчика… Откройте основное окно в этом же браузере.</div>;
+  if (!msg) return <div className="loading">Ждём пульт Мастера… Откройте основное окно в этом же браузере.</div>;
   const key = msg.pub.cardKey ?? '';
   return (
     <PlayerScreen
@@ -284,5 +288,22 @@ function RemotePlayers() {
       onEscalate={() => send({ type: 'escalate', cardKey: key })}
       onAck={() => send({ type: 'ack', cardKey: key })}
     />
+  );
+}
+
+/** Стартовый экран: сценарий ещё не загружен. */
+function Welcome() {
+  return (
+    <section className="panel welcome">
+      <h1>✦ {APP_NAME}</h1>
+      <p>
+        Цифровой стол для правления в духе Reigns: карты с двумя вариантами, шкалы с кризисами, флаги-последствия, сцены и
+        голосование игроков с телефонов. Сюжет целиком задаётся файлом сценария — загрузите свой JSON или начните с примера.
+      </p>
+      <ScenarioLoader big />
+      <p className="small muted">
+        Формат сценария описан в README репозитория. Чтобы продолжить старую партию, используйте «Настройки → Импорт сохранения».
+      </p>
+    </section>
   );
 }

@@ -4,11 +4,16 @@ import type { DeckId, GameState, DeckData, TrackId } from './types';
 import { cardById, characterName, currentView, decidersOf, deciderText, escalationAvailable, fallbackScene, interludeSummary } from './game';
 import type { Card } from './types';
 import type { Deciders } from './votes';
-import { cardTimerSeconds, gameTimeLabel, trackInfo } from './rules';
+import { cardTimerSeconds, gameTimeLabel } from './rules';
+import { brandOf, deckDef, roundName, trackInfo } from './scenario';
 
 export interface PublicCard {
   title: string;
   deck: DeckId;
+  /** Подпись, значок и цвет колоды (из сценария). */
+  deckName: string;
+  deckIcon?: string;
+  deckColor?: string;
   timeOfDay?: string;
   face: string;
   speaker?: string;
@@ -19,7 +24,7 @@ export interface PublicCard {
   timer: number | null;
   /** Есть ли варианты ◀/▶ (у секретной карты подписи скрыты, но варианты есть). */
   options: boolean;
-  /** Кто решает: id мест (персонажей). null — вся котерия. */
+  /** Кто решает: id мест (персонажей). null — все игроки. */
   restrict: Deciders | null;
   /** Подпись «кто решает» для экрана. */
   decider?: string;
@@ -34,6 +39,9 @@ export function cardView(s: GameState, deck: DeckData, c: Card): PublicCard {
   return {
     title: c.title,
     deck: c.deck,
+    deckName: deckDef(deck, c.deck).name,
+    deckIcon: deckDef(deck, c.deck).icon,
+    deckColor: deckDef(deck, c.deck).color,
     timeOfDay: c.timeOfDay,
     face: c.face,
     speaker: c.speaker,
@@ -41,7 +49,7 @@ export function cardView(s: GameState, deck: DeckData, c: Card): PublicCard {
     left: c.left?.label,
     right: c.right?.label,
     canEscalate: escalationAvailable(s, c),
-    timer: cardTimerSeconds(c, s.settings),
+    timer: cardTimerSeconds(c, s.settings, deck),
     options: Boolean(c.left || c.right),
     restrict: decidersOf(c),
     decider: deciderText(c, deck),
@@ -66,8 +74,14 @@ export interface PublicState {
   time: string;
   tracks: Record<TrackId, number>;
   population: number;
+  /** Шкалы сценария в порядке показа. */
+  trackDefs: { id: TrackId; name: string; icon?: string; crisis: boolean }[];
   /** Описания шкал для игроков. */
   trackInfo: Record<TrackId, string>;
+  /** Население: подпись и шкала ёмкости (если механика есть в сценарии). */
+  populationInfo?: { label: string; capacityTrack: TrackId };
+  /** Оформление сценария. */
+  meta: { brand: string; splash?: string; round: string };
   card?: PublicCard;
   /** Ключ текущей карты (чтобы UI сбрасывал анимации/таймер). */
   cardKey?: string;
@@ -90,10 +104,15 @@ export function publicView(s: GameState, deck: DeckData): PublicState {
     interlude: i.number,
     cardIndex: Math.min(i.pos + 1, i.queue.length),
     cardTotal: i.queue.length,
-    time: gameTimeLabel(s.week, s.settings.startSeason),
+    time: gameTimeLabel(s.week, s.settings.startSeason, deck),
     tracks: { ...s.tracks },
     population: s.population,
+    trackDefs: deck.tracks.map((t) => ({ id: t.id, name: t.name, icon: t.icon, crisis: t.crisis !== false })),
     trackInfo: trackInfo(deck),
+    populationInfo: deck.population
+      ? { label: deck.population.label ?? 'Население', capacityTrack: deck.population.capacityTrack }
+      : undefined,
+    meta: { brand: brandOf(deck), splash: deck.meta?.splash, round: roundName(deck) },
     awaitingGm: s.awaitingGm,
     reveal: s.reveal
       ? {
@@ -131,7 +150,7 @@ export function publicView(s: GameState, deck: DeckData): PublicState {
     const sc = v.scene ?? fallbackScene(v.request, deck);
     const src = v.request.kind !== 'crisis' && v.request.cardId ? cardById(deck, v.request.cardId) : undefined;
     base.scene = src?.secret
-      ? { title: `Личное дело: ${characterName(deck, src.owner) ?? '?'}`, text: 'Разыгрывается наедине с Рассказчиком.', crisis: false }
+      ? { title: `Личное дело: ${characterName(deck, src.owner) ?? '?'}`, text: 'Разыгрывается наедине с Мастером.', crisis: false }
       : { title: sc.title, text: sc.playerText, crisis: v.request.kind === 'crisis' };
   } else if (v.kind === 'summary') {
     const sum = interludeSummary(s, deck);
